@@ -95,6 +95,8 @@ type TxPool interface {
 
 // MakeProtocols constructs the P2P protocol definitions for `eth`.
 func MakeProtocols(backend Backend, network uint64, dnsdisc enode.Iterator) []p2p.Protocol {
+
+	fmt.Println("Func: MakeProtocols")
 	protocols := make([]p2p.Protocol, len(ProtocolVersions))
 	for i, version := range ProtocolVersions {
 		version := version // Closure
@@ -150,6 +152,7 @@ func nodeInfo(chain *core.BlockChain, network uint64) *NodeInfo {
 // the protocol handshake. This method will keep processing messages until the
 // connection is torn down.
 func Handle(backend Backend, peer *Peer) error {
+	fmt.Println("Func: Handle()")
 	for {
 		if err := handleMessage(backend, peer); err != nil {
 			peer.Log().Debug("Message handling failed in `eth`", "err", err)
@@ -158,7 +161,7 @@ func Handle(backend Backend, peer *Peer) error {
 	}
 }
 
-type msgHandler func(backend Backend, msg Decoder, peer *Peer) error
+type msgHandler func(backend Backend, msg Decoder, peer *Peer) error // 인터페이스
 type Decoder interface {
 	Decode(val interface{}) error
 	Time() time.Time
@@ -215,6 +218,7 @@ var eth68 = map[uint64]msgHandler{
 // peer. The remote connection is torn down upon returning any error.
 func handleMessage(backend Backend, peer *Peer) error {
 	// Read the next message from the remote peer, and ensure it's fully consumed
+	fmt.Printf("Func:handleMessage\n")
 	msg, err := peer.rw.ReadMsg()
 	if err != nil {
 		return err

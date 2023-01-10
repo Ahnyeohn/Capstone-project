@@ -1024,6 +1024,7 @@ func (srv *Server) checkpoint(c *conn, stage chan<- *conn) error {
 }
 
 func (srv *Server) launchPeer(c *conn) *Peer {
+	fmt.Println("Func: launchPeer")
 	p := newPeer(srv.log, c, srv.Protocols)
 	if srv.EnableMsgEvents {
 		// If message events are enabled, pass the peerFeed
@@ -1036,6 +1037,7 @@ func (srv *Server) launchPeer(c *conn) *Peer {
 
 // runPeer runs in its own goroutine for each peer.
 func (srv *Server) runPeer(p *Peer) {
+	fmt.Println("Func: runPeer")
 	if srv.newPeerHook != nil {
 		srv.newPeerHook(p)
 	}

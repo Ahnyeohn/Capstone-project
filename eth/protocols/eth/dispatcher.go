@@ -186,6 +186,7 @@ func (p *Peer) dispatchResponse(res *Response, metadata func() interface{}) erro
 // it to the network and tracks and dispatches the responses back to the original
 // requester.
 func (p *Peer) dispatcher() {
+	fmt.Println("Func: dispatcher()")
 	pending := make(map[uint64]*Request)
 
 	for {

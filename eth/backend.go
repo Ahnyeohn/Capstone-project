@@ -104,6 +104,7 @@ type Ethereum struct {
 // New creates a new Ethereum object (including the
 // initialisation of the common Ethereum object)
 func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
+	fmt.Println("New()")
 	// Ensure configuration values are compatible and sane
 	if config.SyncMode == downloader.LightSync {
 		return nil, errors.New("can't run eth.Ethereum in light sync mode, use les.LightEthereum")
@@ -177,6 +178,7 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 			rawdb.WriteDatabaseVersion(chainDb, core.BlockChainVersion)
 		}
 	}
+	fmt.Printf("database version: %d\n", *bcVersion)
 	var (
 		vmConfig = vm.Config{
 			EnablePreimageRecording: config.EnablePreimageRecording,
@@ -415,6 +417,7 @@ func (s *Ethereum) SetEtherbase(etherbase common.Address) {
 // and updates the minimum price required by the transaction pool.
 func (s *Ethereum) StartMining(threads int) error {
 	// Update the thread count within the consensus engine
+	fmt.Println("Func: StartMining()")
 	type threaded interface {
 		SetThreads(threads int)
 	}
@@ -512,6 +515,7 @@ func (s *Ethereum) Protocols() []p2p.Protocol {
 // Start implements node.Lifecycle, starting all internal goroutines needed by the
 // Ethereum protocol implementation.
 func (s *Ethereum) Start() error {
+	fmt.Println("Func: Start()")
 	eth.StartENRUpdater(s.blockchain, s.p2pServer.LocalNode())
 
 	// Start the bloom bits servicing goroutines

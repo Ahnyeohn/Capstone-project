@@ -243,6 +243,7 @@ func (p *Peer) Log() log.Logger {
 }
 
 func (p *Peer) run() (remoteRequested bool, err error) {
+	fmt.Printf("Func: p2p/run() ")
 	var (
 		writeStart = make(chan struct{}, 1)
 		writeErr   = make(chan error, 1)
@@ -299,6 +300,7 @@ func (p *Peer) pingLoop() {
 	for {
 		select {
 		case <-ping.C:
+			fmt.Println("Func: in the pingLoop() ")
 			if err := SendItems(p.rw, pingMsg); err != nil {
 				p.protoErr <- err
 				return
@@ -312,12 +314,14 @@ func (p *Peer) pingLoop() {
 
 func (p *Peer) readLoop(errc chan<- error) {
 	defer p.wg.Done()
+	fmt.Printf("Func:p2p/readLoop ")
 	for {
 		msg, err := p.rw.ReadMsg()
 		if err != nil {
 			errc <- err
 			return
 		}
+		fmt.Printf("msg is arrived ")
 		msg.ReceivedAt = time.Now()
 		if err = p.handle(msg); err != nil {
 			errc <- err
@@ -327,21 +331,26 @@ func (p *Peer) readLoop(errc chan<- error) {
 }
 
 func (p *Peer) handle(msg Msg) error {
+	fmt.Println("Func: handle()")
 	switch {
 	case msg.Code == pingMsg:
 		msg.Discard()
 		go SendItems(p.rw, pongMsg)
+		fmt.Printf("case 1:ping\n")
 	case msg.Code == discMsg:
 		// This is the last message. We don't need to discard or
 		// check errors because, the connection will be closed after it.
+		fmt.Printf("case 2:disc\n")
 		var m struct{ R DiscReason }
 		rlp.Decode(msg.Payload, &m)
 		return m.R
 	case msg.Code < baseProtocolLength:
 		// ignore other base protocol messages
+		fmt.Printf("case 3:other protocol\n")
 		return msg.Discard()
 	default:
 		// it's a subprotocol message
+		fmt.Printf("case 4: subprotocol\n")
 		proto, err := p.getProto(msg.Code)
 		if err != nil {
 			return fmt.Errorf("msg code out of range: %v", msg.Code)
@@ -446,6 +455,7 @@ type protoRW struct {
 }
 
 func (rw *protoRW) WriteMsg(msg Msg) (err error) {
+	fmt.Println("Func: WriteMsg3()")
 	if msg.Code >= rw.Length {
 		return newPeerError(errInvalidMsgCode, "not handled")
 	}
@@ -472,8 +482,10 @@ func (rw *protoRW) ReadMsg() (Msg, error) {
 	select {
 	case msg := <-rw.in:
 		msg.Code -= rw.offset
+		fmt.Println("Func: ReadMsg()")
 		return msg, nil
 	case <-rw.closed:
+		fmt.Println("rw closed()")
 		return Msg{}, io.EOF
 	}
 }

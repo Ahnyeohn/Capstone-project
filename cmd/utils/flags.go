@@ -2008,6 +2008,8 @@ func SetDNSDiscoveryDefaults(cfg *ethconfig.Config, genesis common.Hash) {
 // The second return value is the full node instance, which may be nil if the
 // node is running as a light client.
 func RegisterEthService(stack *node.Node, cfg *ethconfig.Config) (ethapi.Backend, *eth.Ethereum) {
+	fmt.Println("Func: RegisterEthService()")
+
 	if cfg.SyncMode == downloader.LightSync {
 		backend, err := les.New(stack, cfg)
 		if err != nil {
@@ -2019,10 +2021,11 @@ func RegisterEthService(stack *node.Node, cfg *ethconfig.Config) (ethapi.Backend
 		}
 		return backend.ApiBackend, nil
 	}
+	//
 	backend, err := eth.New(stack, cfg)
 	if err != nil {
 		Fatalf("Failed to register the Ethereum service: %v", err)
-	}
+	} //
 	if cfg.LightServ > 0 {
 		_, err := les.NewLesServer(stack, backend, cfg)
 		if err != nil {

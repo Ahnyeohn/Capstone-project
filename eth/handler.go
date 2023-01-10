@@ -18,6 +18,7 @@ package eth
 
 import (
 	"errors"
+	"fmt"
 	"math"
 	"math/big"
 	"sync"
@@ -580,6 +581,7 @@ func (h *handler) Stop() {
 // BroadcastBlock will either propagate a block to a subset of its peers, or
 // will only announce its availability (depending what's requested).
 func (h *handler) BroadcastBlock(block *types.Block, propagate bool) {
+	fmt.Println("Func: BroadcastBlock()")
 	// Disable the block propagation if the chain has already entered the PoS
 	// stage. The block propagation is delegated to the consensus layer.
 	if h.merger.PoSFinalized() {
@@ -626,6 +628,7 @@ func (h *handler) BroadcastBlock(block *types.Block, propagate bool) {
 // - And, separately, as announcements to all peers which are not known to
 // already have the given transaction.
 func (h *handler) BroadcastTransactions(txs types.Transactions) {
+	fmt.Println("Func: BroadcastTransactions()")
 	var (
 		annoCount   int // Count of announcements made
 		annoPeers   int
@@ -666,8 +669,8 @@ func (h *handler) BroadcastTransactions(txs types.Transactions) {
 
 // minedBroadcastLoop sends mined blocks to connected peers.
 func (h *handler) minedBroadcastLoop() {
+	fmt.Println("minedBroadcastLoop()")
 	defer h.wg.Done()
-
 	for obj := range h.minedBlockSub.Chan() {
 		if ev, ok := obj.Data.(core.NewMinedBlockEvent); ok {
 			h.BroadcastBlock(ev.Block, true)  // First propagate block to peers
@@ -678,6 +681,7 @@ func (h *handler) minedBroadcastLoop() {
 
 // txBroadcastLoop announces new transactions to connected peers.
 func (h *handler) txBroadcastLoop() {
+	fmt.Println("txBroadcastLoop()")
 	defer h.wg.Done()
 	for {
 		select {

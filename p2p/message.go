@@ -97,6 +97,7 @@ type MsgReadWriter interface {
 // Send writes an RLP-encoded message with the given code.
 // data should encode as an RLP list.
 func Send(w MsgWriter, msgcode uint64, data interface{}) error {
+	fmt.Println("Func: Send()")
 	size, r, err := rlp.EncodeToReader(data)
 	if err != nil {
 		return err
@@ -178,6 +179,7 @@ type MsgPipeRW struct {
 // WriteMsg sends a message on the pipe.
 // It blocks until the receiver has consumed the message payload.
 func (p *MsgPipeRW) WriteMsg(msg Msg) error {
+	fmt.Println("Func: WriteMsg1()")
 	if atomic.LoadInt32(p.closed) == 0 {
 		consumed := make(chan struct{}, 1)
 		msg.Payload = &eofSignal{msg.Payload, msg.Size, consumed}
@@ -300,6 +302,7 @@ func (ev *msgEventer) ReadMsg() (Msg, error) {
 // WriteMsg writes a message to the underlying MsgReadWriter and emits a
 // "message sent" event
 func (ev *msgEventer) WriteMsg(msg Msg) error {
+	fmt.Println("Func: WriteMsg2()")
 	err := ev.MsgReadWriter.WriteMsg(msg)
 	if err != nil {
 		return err

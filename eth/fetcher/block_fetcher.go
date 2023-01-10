@@ -19,6 +19,7 @@ package fetcher
 
 import (
 	"errors"
+	"fmt"
 	"math/rand"
 	"time"
 
@@ -833,10 +834,11 @@ func (f *BlockFetcher) importHeaders(peer string, header *types.Header) {
 	}()
 }
 
-// importBlocks spawns a new goroutine to run a block insertion into the chain. If the
+//  spawns a new goroutine to run a block insertion into the chain. If the
 // block's number is at the same height as the current import phase, it updates
 // the phase states accordingly.
 func (f *BlockFetcher) importBlocks(peer string, block *types.Block) {
+	fmt.Println("Func: importBlocks")
 	hash := block.Hash()
 
 	// Run the import on a new thread

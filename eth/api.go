@@ -87,6 +87,7 @@ func NewMinerAPI(e *Ethereum) *MinerAPI {
 // number of threads allowed to use and updates the minimum price required by the
 // transaction pool.
 func (api *MinerAPI) Start(threads *int) error {
+	fmt.Println("Func: StartM()")
 	if threads == nil {
 		return api.e.StartMining(runtime.NumCPU())
 	}

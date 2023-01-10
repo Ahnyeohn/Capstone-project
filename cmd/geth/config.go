@@ -157,6 +157,7 @@ func makeConfigNode(ctx *cli.Context) (*node.Node, gethConfig) {
 
 // makeFullNode loads geth configuration and creates the Ethereum backend.
 func makeFullNode(ctx *cli.Context) (*node.Node, ethapi.Backend) {
+	fmt.Println("Func: makeFullNode()")
 	stack, cfg := makeConfigNode(ctx)
 	if ctx.IsSet(utils.OverrideTerminalTotalDifficulty.Name) {
 		cfg.Eth.OverrideTerminalTotalDifficulty = flags.GlobalBig(ctx, utils.OverrideTerminalTotalDifficulty.Name)
