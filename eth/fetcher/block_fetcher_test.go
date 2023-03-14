@@ -18,6 +18,7 @@ package fetcher
 
 import (
 	"errors"
+	"fmt"
 	"math/big"
 	"sync"
 	"sync/atomic"
@@ -95,6 +96,7 @@ type fetcherTester struct {
 
 // newTester creates a new fetcher test mocker.
 func newTester(light bool) *fetcherTester {
+	fmt.Println("Func: newTester()")
 	tester := &fetcherTester{
 		hashes:  []common.Hash{genesis.Hash()},
 		headers: map[common.Hash]*types.Header{genesis.Hash(): genesis.Header()},

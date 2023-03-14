@@ -86,6 +86,7 @@ func NewMinerAPI(e *Ethereum) *MinerAPI {
 // usable by this process. If mining is already running, this method adjust the
 // number of threads allowed to use and updates the minimum price required by the
 // transaction pool.
+//마이닝을 시작하는 함수 내부적으로 startMining을 호출
 func (api *MinerAPI) Start(threads *int) error {
 	fmt.Println("Func: StartM()")
 	if threads == nil {

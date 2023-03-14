@@ -224,7 +224,10 @@ func (p *Peer) Inbound() bool {
 	return p.rw.is(inboundConn)
 }
 
+//서버에서 지정한 프로토콜을 가지고 피어를 생성 및 반환
 func newPeer(log log.Logger, conn *conn, protocols []Protocol) *Peer {
+
+	fmt.Println("Func: p2p/newPeer()")
 	protomap := matchProtocols(protocols, conn.caps, conn)
 	p := &Peer{
 		rw:       conn,
@@ -242,6 +245,7 @@ func (p *Peer) Log() log.Logger {
 	return p.log
 }
 
+//피어간의 메인루프를 작동, 에러가 발생할때까지 대기
 func (p *Peer) run() (remoteRequested bool, err error) {
 	fmt.Printf("Func: p2p/run() ")
 	var (
@@ -256,7 +260,7 @@ func (p *Peer) run() (remoteRequested bool, err error) {
 
 	// Start all protocol handlers.
 	writeStart <- struct{}{}
-	p.startProtocols(writeStart, writeErr)
+	p.startProtocols(writeStart, writeErr) // 프로토콜 핸들러를 실행
 
 	// Wait for an error or disconnect.
 loop:
@@ -300,7 +304,7 @@ func (p *Peer) pingLoop() {
 	for {
 		select {
 		case <-ping.C:
-			fmt.Println("Func: in the pingLoop() ")
+			fmt.Println("Func: pingLoop() ")
 			if err := SendItems(p.rw, pingMsg); err != nil {
 				p.protoErr <- err
 				return
@@ -314,7 +318,7 @@ func (p *Peer) pingLoop() {
 
 func (p *Peer) readLoop(errc chan<- error) {
 	defer p.wg.Done()
-	fmt.Printf("Func:p2p/readLoop ")
+	fmt.Printf("Func:p2p/peer.go/readLoop ")
 	for {
 		msg, err := p.rw.ReadMsg()
 		if err != nil {
@@ -331,24 +335,24 @@ func (p *Peer) readLoop(errc chan<- error) {
 }
 
 func (p *Peer) handle(msg Msg) error {
-	fmt.Println("Func: handle()")
+	fmt.Println("handle()")
 	switch {
 	case msg.Code == pingMsg:
 		msg.Discard()
 		go SendItems(p.rw, pongMsg)
 		fmt.Printf("case 1:ping\n")
-	case msg.Code == discMsg:
+	case msg.Code == discMsg: // 연결을 끊을때 마지막으로 상대가 보낸 메세지를 받음
 		// This is the last message. We don't need to discard or
 		// check errors because, the connection will be closed after it.
 		fmt.Printf("case 2:disc\n")
 		var m struct{ R DiscReason }
 		rlp.Decode(msg.Payload, &m)
-		return m.R
+		return m.R //
 	case msg.Code < baseProtocolLength:
 		// ignore other base protocol messages
 		fmt.Printf("case 3:other protocol\n")
 		return msg.Discard()
-	default:
+	default: // 경험상으로는 실질적 데이터 즉, 블록이나 트랜잭션을 주고받을때 실행된다.
 		// it's a subprotocol message
 		fmt.Printf("case 4: subprotocol\n")
 		proto, err := p.getProto(msg.Code)
@@ -407,9 +411,11 @@ outer:
 	return result
 }
 
+//프로토콜(protoRW)과 주소정보를 바탕으로 rw(MsgReadWriter)를 생성하고, rw를 proto.Run() 실행
 func (p *Peer) startProtocols(writeStart <-chan struct{}, writeErr chan<- error) {
+	fmt.Println("Func: startProtocols()")
 	p.wg.Add(len(p.running))
-	for _, proto := range p.running {
+	for _, proto := range p.running { // 해당 피어의 돌고있는 proto마다
 		proto := proto
 		proto.closed = p.closed
 		proto.wstart = writeStart
@@ -421,7 +427,7 @@ func (p *Peer) startProtocols(writeStart <-chan struct{}, writeErr chan<- error)
 		p.log.Trace(fmt.Sprintf("Starting protocol %s/%d", proto.Name, proto.Version))
 		go func() {
 			defer p.wg.Done()
-			err := proto.Run(p, rw)
+			err := proto.Run(p, rw) // 프로토콜이 해당 피어와 협상하면 실행한다.
 			if err == nil {
 				p.log.Trace(fmt.Sprintf("Protocol %s/%d returned", proto.Name, proto.Version))
 				err = errProtocolReturned
@@ -467,6 +473,7 @@ func (rw *protoRW) WriteMsg(msg Msg) (err error) {
 	select {
 	case <-rw.wstart:
 		err = rw.w.WriteMsg(msg)
+		fmt.Println("write msg")
 		// Report write status back to Peer.run. It will initiate
 		// shutdown if the error is non-nil and unblock the next write
 		// otherwise. The calling protocol code should exit for errors

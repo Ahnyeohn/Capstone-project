@@ -69,6 +69,7 @@ func Fatalf(format string, args ...interface{}) {
 }
 
 func StartNode(ctx *cli.Context, stack *node.Node, isConsole bool) {
+	fmt.Println("Func: utils/StartNode()")
 	if err := stack.Start(); err != nil {
 		Fatalf("Error starting protocol stack: %v", err)
 	}

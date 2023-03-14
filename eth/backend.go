@@ -514,6 +514,7 @@ func (s *Ethereum) Protocols() []p2p.Protocol {
 
 // Start implements node.Lifecycle, starting all internal goroutines needed by the
 // Ethereum protocol implementation.
+//내부적으로 s.handler.Start(maxPeers) 함수 호출하여 네트워킹 레이어 시작
 func (s *Ethereum) Start() error {
 	fmt.Println("Func: Start()")
 	eth.StartENRUpdater(s.blockchain, s.p2pServer.LocalNode())

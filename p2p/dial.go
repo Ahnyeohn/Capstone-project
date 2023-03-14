@@ -19,6 +19,7 @@ package p2p
 import (
 	"context"
 	crand "crypto/rand"
+	"crypto/tls"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -31,6 +32,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/ethereum/go-ethereum/p2p/netutil"
+	quic "github.com/quic-go/quic-go"
 )
 
 const (
@@ -51,7 +53,8 @@ const (
 // NodeDialer is used to connect to nodes in the network, typically by using
 // an underlying net.Dialer but also using net.Pipe in tests.
 type NodeDialer interface {
-	Dial(context.Context, *enode.Node) (net.Conn, error)
+	Dial(context.Context, *enode.Node) (quic.Connection, error)
+	//Dial(context.Context, *enode.Node) (net.Conn, error)
 }
 
 type nodeResolver interface {
@@ -61,14 +64,64 @@ type nodeResolver interface {
 // tcpDialer implements NodeDialer using real TCP connections.
 type tcpDialer struct {
 	d *net.Dialer
-}
+	n *enode.LocalNode
+} // 얘가 노드다이얼러의 다이얼을 구현하는 구조체이구나!!!
 
-func (t tcpDialer) Dial(ctx context.Context, dest *enode.Node) (net.Conn, error) {
-	return t.d.DialContext(ctx, "tcp", nodeAddr(dest).String())
+type udpDialer struct {
+	d *net.Dialer
+	n *enode.LocalNode
+} // 얘가 노드다이얼러의 다이얼을 구현하는 구조체이구나!!!
+
+// func (t tcpDialer) Dial(ctx context.Context, dest *enode.Node) (net.Conn, error) {
+// 	fmt.Println("Func: tcp Dial()")
+
+// 	//return quic.DialAddr(nodeAddr(dest).String(), tlsConf, nil) //TCP
+// 	return t.d.DialContext(ctx, "tcp", nodeAddr(dest).String()) //TCP
+// }
+
+func (t tcpDialer) Dial(ctx context.Context, dest *enode.Node) (quic.Connection, error) {
+	fmt.Println("Func: tcp Dial()")
+	fmt.Printf("dest: %s\n%s\n%s\n%s\n", dest.URLv4(), dest.IP().To4().String(), dest.IP().String(), nodeAddr(dest).String())
+
+	myaddr := fmt.Sprintf("%s:%d", t.n.Node().IP().String(), t.n.Node().UDP())
+	fmt.Printf("addr: %s\n", myaddr)
+
+	udpAddr, err := net.ResolveUDPAddr("udp", myaddr)
+	if err != nil {
+		panic(err)
+	}
+
+	udpConn, err := net.ListenUDP("udp", &net.UDPAddr{IP: t.n.Node().IP(), Port: 0})
+	if err != nil {
+		fmt.Println("err1")
+		panic(err)
+	}
+
+	tlsConf := &tls.Config{
+		InsecureSkipVerify: true,
+		NextProtos:         []string{"socket-programming"},
+	}
+
+	conn, err := quic.Dial(udpConn, udpAddr, dest.IP().String(), tlsConf, nil)
+	if err != nil {
+		fmt.Println("err2")
+		panic(err)
+	} // udpaddr로 했더니 port가 없다면서 에러 발생
+	//여기가 문제인거 같다.
+
+	// conn, err := quic.DialAddr(nodeAddr(dest).String(), tlsConf, nil)
+	// if err != nil {
+	// 	fmt.Println("err2!")
+	// 	panic(err)
+	// }
+
+	return conn, err
+
 }
 
 func nodeAddr(n *enode.Node) net.Addr {
-	return &net.TCPAddr{IP: n.IP(), Port: n.TCP()}
+	//fix: return &net.TCPAddr{IP: n.IP(), Port: n.TCP()} //TCP
+	return &net.UDPAddr{IP: n.IP(), Port: n.UDP()} //TCP
 }
 
 // checkDial errors:
@@ -126,7 +179,8 @@ type dialScheduler struct {
 	doneSinceLastLog int
 }
 
-type dialSetupFunc func(net.Conn, connFlag, *enode.Node) error
+// fix: type dialSetupFunc func(net.Conn, connFlag, *enode.Node) error
+type dialSetupFunc func(quic.Connection, quic.Stream, connFlag, *enode.Node) error
 
 type dialConfig struct {
 	self           enode.ID         // our own ID
@@ -160,9 +214,10 @@ func (cfg dialConfig) withDefaults() dialConfig {
 }
 
 func newDialScheduler(config dialConfig, it enode.Iterator, setupFunc dialSetupFunc) *dialScheduler {
+	fmt.Println("Func: newDialScheduler()")
 	d := &dialScheduler{
 		dialConfig:  config.withDefaults(),
-		setupFunc:   setupFunc,
+		setupFunc:   setupFunc, //
 		dialing:     make(map[enode.ID]*dialTask),
 		static:      make(map[enode.ID]*dialTask),
 		peers:       make(map[enode.ID]struct{}),
@@ -176,7 +231,7 @@ func newDialScheduler(config dialConfig, it enode.Iterator, setupFunc dialSetupF
 	d.lastStatsLog = d.clock.Now()
 	d.ctx, d.cancel = context.WithCancel(context.Background())
 	d.wg.Add(2)
-	go d.readNodes(it)
+	go d.readNodes(it) // 반복자가 돌면서 최신 노드를 nodein 채널? 에 넣어줌
 	go d.loop(it)
 	return d
 }
@@ -191,6 +246,7 @@ func (d *dialScheduler) stop() {
 func (d *dialScheduler) addStatic(n *enode.Node) {
 	select {
 	case d.addStaticCh <- n:
+		fmt.Println("new dial!")
 	case <-d.ctx.Done():
 	}
 }
@@ -232,7 +288,7 @@ loop:
 		slots := d.freeDialSlots()
 		slots -= d.startStaticDials(slots)
 		if slots > 0 {
-			nodesCh = d.nodesIn
+			nodesCh = d.nodesIn // 중요
 		} else {
 			nodesCh = nil
 		}
@@ -245,7 +301,7 @@ loop:
 				d.log.Trace("Discarding dial candidate", "id", node.ID(), "ip", node.IP(), "reason", err)
 			} else {
 				d.startDial(newDialTask(node, dynDialedConn))
-			}
+			} // 우리가 봐야할 케이스 1
 
 		case task := <-d.doneCh:
 			id := task.dest.ID()
@@ -284,7 +340,7 @@ loop:
 			d.static[id] = task
 			if d.checkDial(node) == nil {
 				d.addToStaticPool(task)
-			}
+			} // 우리가 봐야할 케이스 2
 
 		case node := <-d.remStaticCh:
 			id := node.ID()
@@ -388,7 +444,7 @@ func (d *dialScheduler) checkDial(n *enode.Node) error {
 	if n.ID() == d.self {
 		return errSelf
 	}
-	if n.IP() != nil && n.TCP() == 0 {
+	if n.IP() != nil && n.TCP() == 0 { //TCP
 		// This check can trigger if a non-TCP node is found
 		// by discovery. If there is no IP, the node is a static
 		// node and the actual endpoint will be resolved later in dialTask.
@@ -450,6 +506,7 @@ func (d *dialScheduler) removeFromStaticPool(idx int) {
 
 // startDial runs the given dial task in a separate goroutine.
 func (d *dialScheduler) startDial(task *dialTask) {
+	fmt.Println("Func: startDial()")
 	d.log.Trace("Starting p2p dial", "id", task.dest.ID(), "ip", task.dest.IP(), "flag", task.flags)
 	hkey := string(task.dest.ID().Bytes())
 	d.history.add(hkey, d.clock.Now().Add(dialHistoryExpiration))
@@ -484,7 +541,7 @@ func (t *dialTask) run(d *dialScheduler) {
 		return
 	}
 
-	err := t.dial(d, t.dest)
+	err := t.dial(d, t.dest) // 왜 근데 fd를 받아오지 않는거지? dial함수에는 fd를 받아서 뭔가 변수에 저장한다던가 그런부분이 없는데?
 	if err != nil {
 		// For static nodes, resolve one more time if dialing fails.
 		if _, ok := err.(*dialError); ok && t.flags&staticDialedConn != 0 {
@@ -534,18 +591,28 @@ func (t *dialTask) resolve(d *dialScheduler) bool {
 
 // dial performs the actual connection attempt.
 func (t *dialTask) dial(d *dialScheduler, dest *enode.Node) error {
-	fd, err := d.dialer.Dial(d.ctx, t.dest)
+	fd, err := d.dialer.Dial(d.ctx, t.dest) //오피셜: 아마 내부에 표준 dial 함수를 사용할듯?
 	if err != nil {
 		d.log.Trace("Dial error", "id", t.dest.ID(), "addr", nodeAddr(t.dest), "conn", t.flags, "err", cleanupDialErr(err))
 		return &dialError{err}
 	}
-	mfd := newMeteredConn(fd, false, &net.TCPAddr{IP: dest.IP(), Port: dest.TCP()})
-	return d.setupFunc(mfd, t.flags, dest)
+	// fix: remove this
+	stream, err := fd.OpenStreamSync(d.ctx)
+	if err != nil {
+		panic(err)
+	}
+	//
+
+	//mfd := newMeteredConn(fd, stream, false, &net.UDPAddr{IP: dest.IP(), Port: dest.TCP()}) //TCP
+
+	// fix:
+	return d.setupFunc(fd, stream, t.flags, dest) //  == setupConn
+	//일단 mfd를 안쓰겠다.
 }
 
 func (t *dialTask) String() string {
 	id := t.dest.ID()
-	return fmt.Sprintf("%v %x %v:%d", t.flags, id[:8], t.dest.IP(), t.dest.TCP())
+	return fmt.Sprintf("%v %x %v:%d", t.flags, id[:8], t.dest.IP(), t.dest.TCP()) //TCP??
 }
 
 func cleanupDialErr(err error) error {

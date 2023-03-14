@@ -19,10 +19,17 @@ package p2p
 
 import (
 	"bytes"
+	"context"
 	"crypto/ecdsa"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/hex"
+	"encoding/pem"
 	"errors"
 	"fmt"
+	"math/big"
 	"net"
 	"sort"
 	"sync"
@@ -39,6 +46,7 @@ import (
 	"github.com/ethereum/go-ethereum/p2p/enr"
 	"github.com/ethereum/go-ethereum/p2p/nat"
 	"github.com/ethereum/go-ethereum/p2p/netutil"
+	quic "github.com/quic-go/quic-go"
 )
 
 const (
@@ -169,14 +177,16 @@ type Server struct {
 
 	// Hooks for testing. These are useful because we can inhibit
 	// the whole protocol stack.
-	newTransport func(net.Conn, *ecdsa.PublicKey) transport
+	//fix: newTransport func(net.Conn, *ecdsa.PublicKey) transport
+	newTransport func(quic.Connection, quic.Stream, *ecdsa.PublicKey) transport
 	newPeerHook  func(*Peer)
 	listenFunc   func(network, addr string) (net.Listener, error)
 
 	lock    sync.Mutex // protects running
 	running bool
 
-	listener     net.Listener
+	//listener     net.Listener
+	listener     quic.Listener
 	ourHandshake *protoHandshake
 	loopWG       sync.WaitGroup // loop, listenLoop
 	peerFeed     event.Feed
@@ -223,7 +233,10 @@ const (
 // conn wraps a network connection with information gathered
 // during the two handshakes.
 type conn struct {
-	fd net.Conn
+	//fix: remove conn quic.Connection
+	fd     net.Conn
+	con    quic.Connection
+	stream quic.Stream
 	transport
 	node  *enode.Node
 	flags connFlag
@@ -324,6 +337,7 @@ func (srv *Server) PeerCount() int {
 // the server will connect to the node. If the connection fails for any reason, the server
 // will attempt to reconnect the peer.
 func (srv *Server) AddPeer(node *enode.Node) {
+	fmt.Println("Func: AddPeer")
 	srv.dialsched.addStatic(node)
 }
 
@@ -438,6 +452,7 @@ func (s *sharedUDPConn) Close() error {
 // Start starts running the server.
 // Servers can not be re-used after stopping.
 func (srv *Server) Start() (err error) {
+	fmt.Println("Func: server/Start()")
 	srv.lock.Lock()
 	defer srv.lock.Unlock()
 	if srv.running {
@@ -627,6 +642,7 @@ func (srv *Server) setupDiscovery() error {
 }
 
 func (srv *Server) setupDialScheduler() {
+	fmt.Println("Func: setupDialScheduler()")
 	config := dialConfig{
 		self:           srv.localnode.ID(),
 		maxDialPeers:   srv.maxDialedConns(),
@@ -640,7 +656,8 @@ func (srv *Server) setupDialScheduler() {
 		config.resolver = srv.ntab
 	}
 	if config.dialer == nil {
-		config.dialer = tcpDialer{&net.Dialer{Timeout: defaultDialTimeout}}
+		config.dialer = tcpDialer{&net.Dialer{Timeout: defaultDialTimeout}, srv.localnode}
+		// fix: config.dialer = tcpDialer{&net.Dialer{Timeout: defaultDialTimeout}}
 	}
 	srv.dialsched = newDialScheduler(config, srv.discmix, srv.SetupConn)
 	for _, n := range srv.StaticNodes {
@@ -667,9 +684,34 @@ func (srv *Server) maxDialedConns() (limit int) {
 	return limit
 }
 
+func GenerateTLSConfig() *tls.Config {
+	key, err := rsa.GenerateKey(rand.Reader, 1024)
+	if err != nil {
+		panic(err)
+	}
+	template := x509.Certificate{SerialNumber: big.NewInt(1)}
+	certDER, err := x509.CreateCertificate(rand.Reader, &template, &template, &key.PublicKey, key)
+	if err != nil {
+		panic(err)
+	}
+	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(key)})
+	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certDER})
+
+	tlsCert, err := tls.X509KeyPair(certPEM, keyPEM)
+	if err != nil {
+		panic(err)
+	}
+	return &tls.Config{
+		Certificates: []tls.Certificate{tlsCert},
+		NextProtos:   []string{"socket-programming"},
+	}
+}
+
 func (srv *Server) setupListening() error {
 	// Launch the listener.
-	listener, err := srv.listenFunc("tcp", srv.ListenAddr)
+	// fix: listener, err := srv.listenFunc("tcp", srv.ListenAddr) //tcp
+	config := quic.Config{}
+	listener, err := quic.ListenAddr(srv.ListenAddr, GenerateTLSConfig(), &config)
 	if err != nil {
 		return err
 	}
@@ -677,7 +719,7 @@ func (srv *Server) setupListening() error {
 	srv.ListenAddr = listener.Addr().String()
 
 	// Update the local node record and map the TCP listening port if NAT is configured.
-	if tcp, ok := listener.Addr().(*net.TCPAddr); ok {
+	if tcp, ok := listener.Addr().(*net.TCPAddr); ok { //tcp
 		srv.localnode.Set(enr.TCP(tcp.Port))
 		if !tcp.IP.IsLoopback() && srv.NAT != nil {
 			srv.loopWG.Add(1)
@@ -704,6 +746,7 @@ func (srv *Server) doPeerOp(fn peerOpFunc) {
 
 // run is the main loop of the server.
 func (srv *Server) run() {
+	fmt.Println("Func: p2p/server.go/run()")
 	srv.log.Info("Started P2P networking", "self", srv.localnode.Node().URLv4())
 	defer srv.loopWG.Done()
 	defer srv.nodedb.Close()
@@ -782,6 +825,7 @@ running:
 			d := common.PrettyDuration(mclock.Now() - pd.created)
 			delete(peers, pd.ID())
 			srv.log.Debug("Removing p2p peer", "peercount", len(peers), "id", pd.ID(), "duration", d, "req", pd.requested, "err", pd.err)
+			fmt.Println("in run(): Removing p2p peer")
 			srv.dialsched.peerRemoved(pd.rw)
 			if pd.Inbound() {
 				inboundCount--
@@ -840,6 +884,7 @@ func (srv *Server) addPeerChecks(peers map[enode.ID]*Peer, inboundCount int, c *
 // listenLoop runs in its own goroutine and accepts
 // inbound connections.
 func (srv *Server) listenLoop() {
+	fmt.Println("Func: listenLoop()")
 	srv.log.Debug("TCP listener up", "addr", srv.listener.Addr())
 
 	// The slots channel limits accepts of new connections.
@@ -866,12 +911,28 @@ func (srv *Server) listenLoop() {
 		<-slots
 
 		var (
-			fd      net.Conn
+			//fix: fd      net.Conn
+			conn    quic.Connection
 			err     error
+			stream  quic.Stream
 			lastLog time.Time
 		)
 		for {
-			fd, err = srv.listener.Accept()
+			//fix: fd, err = srv.listener.Accept()
+			ctx := context.Background()
+			conn, err = srv.listener.Accept(ctx)
+			if err != nil {
+				fmt.Println("accept err")
+				panic(err)
+			}
+
+			stream, err = conn.AcceptStream(ctx)
+			if err != nil {
+				fmt.Println("accept stream err")
+				panic(err)
+			}
+
+			// 문제1: 이 context부분을 그대로 써도 문제가 없는가?
 			if netutil.IsTemporaryError(err) {
 				if time.Since(lastLog) > 1*time.Second {
 					srv.log.Debug("Temporary read error", "err", err)
@@ -887,23 +948,33 @@ func (srv *Server) listenLoop() {
 			break
 		}
 
-		remoteIP := netutil.AddrIP(fd.RemoteAddr())
+		remoteIP := netutil.AddrIP(conn.RemoteAddr())
 		if err := srv.checkInboundConn(remoteIP); err != nil {
-			srv.log.Debug("Rejected inbound connection", "addr", fd.RemoteAddr(), "err", err)
-			fd.Close()
+			srv.log.Debug("Rejected inbound connection", "addr", conn.RemoteAddr(), "err", err)
+			//fix: fd.Close()
+			//문제: quic.conn에는 close함수가 없고 이상한 함수가 있다.
+			//conn.CloseWithError(nil, nil)
 			slots <- struct{}{}
 			continue
 		}
+		//net.IP부분을 받아다가
 		if remoteIP != nil {
-			var addr *net.TCPAddr
-			if tcp, ok := fd.RemoteAddr().(*net.TCPAddr); ok {
-				addr = tcp
+			//fix:var addr *net.TCPAddr //tcp
+			//if tcp, ok := conn.RemoteAddr().(*net.TCPAddr); ok {
+			//	  addr = tcp
+			//}
+			var addr *net.UDPAddr //tcp
+			if udp, ok := conn.RemoteAddr().(*net.UDPAddr); ok {
+				addr = udp
 			}
-			fd = newMeteredConn(fd, true, addr)
-			srv.log.Trace("Accepted connection", "addr", fd.RemoteAddr())
+			//fix: conn = newMeteredConn(conn, true, addr)
+			srv.log.Trace("Accepted connection", "addr", conn.RemoteAddr())
+			stream = newMeteredConn(stream, true, addr)
+			srv.log.Trace("Accepted connection", "addr", conn.RemoteAddr())
 		}
 		go func() {
-			srv.SetupConn(fd, inboundConn, nil)
+			//fix: srv.SetupConn(fd, inboundConn, nil)
+			srv.SetupConn(conn, stream, inboundConn, nil) // 내게로 오는 conn
 			slots <- struct{}{}
 		}()
 	}
@@ -930,12 +1001,16 @@ func (srv *Server) checkInboundConn(remoteIP net.IP) error {
 // SetupConn runs the handshakes and attempts to add the connection
 // as a peer. It returns when the connection has been added as a peer
 // or the handshakes have failed.
-func (srv *Server) SetupConn(fd net.Conn, flags connFlag, dialDest *enode.Node) error {
-	c := &conn{fd: fd, flags: flags, cont: make(chan error)}
+// fix: func (srv *Server) SetupConn(fd net.Conn, flags connFlag, dialDest *enode.Node) error {
+func (srv *Server) SetupConn(con quic.Connection, stream quic.Stream, flags connFlag, dialDest *enode.Node) error {
+	fmt.Println("Func: SetupConn()")
+	c := &conn{con: con, stream: stream, flags: flags, cont: make(chan error)}
 	if dialDest == nil {
-		c.transport = srv.newTransport(fd, nil)
+		// fix: c.transport = srv.newTransport(fd, nil)
+		c.transport = srv.newTransport(con, stream, nil) // 사실상 newRLPX() 와 같다.
 	} else {
-		c.transport = srv.newTransport(fd, dialDest.Pubkey())
+		// fix: c.transport = srv.newTransport(fd), dialDest.Pubkey())
+		c.transport = srv.newTransport(con, stream, dialDest.Pubkey())
 	}
 
 	err := srv.setupConn(c, flags, dialDest)
@@ -959,23 +1034,24 @@ func (srv *Server) setupConn(c *conn, flags connFlag, dialDest *enode.Node) erro
 		dialPubkey := new(ecdsa.PublicKey)
 		if err := dialDest.Load((*enode.Secp256k1)(dialPubkey)); err != nil {
 			err = errors.New("dial destination doesn't have a secp256k1 public key")
-			srv.log.Trace("Setting up connection failed", "addr", c.fd.RemoteAddr(), "conn", c.flags, "err", err)
+			srv.log.Trace("Setting up connection failed", "addr", c.con.RemoteAddr(), "conn", c.flags, "err", err)
 			return err
 		}
 	}
 
 	// Run the RLPx handshake.
-	remotePubkey, err := c.doEncHandshake(srv.PrivateKey)
+	remotePubkey, err := c.doEncHandshake(srv.PrivateKey) // priv key를 통해 pub key 생성
 	if err != nil {
-		srv.log.Trace("Failed RLPx handshake", "addr", c.fd.RemoteAddr(), "conn", c.flags, "err", err)
+		srv.log.Trace("Failed RLPx handshake", "addr", c.con.RemoteAddr(), "conn", c.flags, "err", err)
 		return err
 	}
 	if dialDest != nil {
 		c.node = dialDest
 	} else {
-		c.node = nodeFromConn(remotePubkey, c.fd)
+		//fix: c.node = nodeFromConn(remotePubkey, c.fd)
+		c.node = nodeFromConn(remotePubkey, c.con)
 	}
-	clog := srv.log.New("id", c.node.ID(), "addr", c.fd.RemoteAddr(), "conn", c.flags)
+	clog := srv.log.New("id", c.node.ID(), "addr", c.con.RemoteAddr(), "conn", c.flags)
 	err = srv.checkpoint(c, srv.checkpointPostHandshake)
 	if err != nil {
 		clog.Trace("Rejected peer", "err", err)
@@ -1002,12 +1078,13 @@ func (srv *Server) setupConn(c *conn, flags connFlag, dialDest *enode.Node) erro
 	return nil
 }
 
-func nodeFromConn(pubkey *ecdsa.PublicKey, conn net.Conn) *enode.Node {
+// fix: func nodeFromConn(pubkey *ecdsa.PublicKey, conn net.Conn) *enode.Node { //tcp
+func nodeFromConn(pubkey *ecdsa.PublicKey, conn quic.Connection) *enode.Node { //tcp
 	var ip net.IP
 	var port int
-	if tcp, ok := conn.RemoteAddr().(*net.TCPAddr); ok {
-		ip = tcp.IP
-		port = tcp.Port
+	if udp, ok := conn.RemoteAddr().(*net.UDPAddr); ok { // 문제3: 이거 써도 무방하겠지?
+		ip = udp.IP
+		port = udp.Port
 	}
 	return enode.NewV4(pubkey, ip, port, port)
 }
@@ -1023,25 +1100,27 @@ func (srv *Server) checkpoint(c *conn, stage chan<- *conn) error {
 	return <-c.cont
 }
 
+// (연결될때마다 각각의 피어(노드)에서 실행)
 func (srv *Server) launchPeer(c *conn) *Peer {
-	fmt.Println("Func: launchPeer")
-	p := newPeer(srv.log, c, srv.Protocols)
+	fmt.Println("Func: launchPeer()")
+	p := newPeer(srv.log, c, srv.Protocols) //피어를 생성
 	if srv.EnableMsgEvents {
 		// If message events are enabled, pass the peerFeed
 		// to the peer.
-		p.events = &srv.peerFeed
+		p.events = &srv.peerFeed // 피어의 메세지 이벤트에 peerfeed 주소공급
 	}
-	go srv.runPeer(p)
+	go srv.runPeer(p) // 그 피어를 고루틴으로 돌리기
 	return p
 }
 
 // runPeer runs in its own goroutine for each peer.
+// 피어간에 실행되는 메인 (peer.run()을 실행시키면서 피어드롭을 감지하고, 피어드롭 신호가 올때까지 대기)
 func (srv *Server) runPeer(p *Peer) {
-	fmt.Println("Func: runPeer")
+	fmt.Println("Func: runPeer()")
 	if srv.newPeerHook != nil {
 		srv.newPeerHook(p)
 	}
-	srv.peerFeed.Send(&PeerEvent{
+	srv.peerFeed.Send(&PeerEvent{ // 피어이벤트 즉, 피어정보를 담은 이벤트를 구독자들에게 전달
 		Type:          PeerEventTypeAdd,
 		Peer:          p.ID(),
 		RemoteAddress: p.RemoteAddr().String(),
@@ -1049,12 +1128,12 @@ func (srv *Server) runPeer(p *Peer) {
 	})
 
 	// Run the per-peer main loop.
-	remoteRequested, err := p.run()
+	remoteRequested, err := p.run() // peer간에 실행되는 메인루프
 
 	// Announce disconnect on the main loop to update the peer set.
 	// The main loop waits for existing peers to be sent on srv.delpeer
 	// before returning, so this send should not select on srv.quit.
-	srv.delpeer <- peerDrop{p, err, remoteRequested}
+	srv.delpeer <- peerDrop{p, err, remoteRequested} //아마 여기서 특정신호가 올때까지 블락되는듯
 
 	// Broadcast peer drop to external subscribers. This needs to be
 	// after the send to delpeer so subscribers have a consistent view of

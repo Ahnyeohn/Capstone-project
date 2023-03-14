@@ -18,6 +18,7 @@ package eth
 
 import (
 	"errors"
+	"fmt"
 	"math/big"
 	"sync/atomic"
 	"time"
@@ -233,7 +234,9 @@ func (cs *chainSyncer) startSync(op *chainSyncOp) {
 
 // doSync synchronizes the local blockchain with a remote peer.
 func (h *handler) doSync(op *chainSyncOp) error {
+	fmt.Println("Func: doSync")
 	if op.mode == downloader.SnapSync {
+		fmt.Println("Func: SnapSync mode")
 		// Before launch the snap sync, we have to ensure user uses the same
 		// txlookup limit.
 		// The main concern here is: during the snap sync Geth won't index the
@@ -245,7 +248,7 @@ func (h *handler) doSync(op *chainSyncOp) error {
 		// will just blindly use the original one.
 		limit := h.chain.TxLookupLimit()
 		if stored := rawdb.ReadFastTxLookupLimit(h.database); stored == nil {
-			rawdb.WriteFastTxLookupLimit(h.database, limit)
+			rawdb.WriteFastTxLookupLimit(h.database, limit) // rawdb 사용?
 		} else if *stored != limit {
 			h.chain.SetTxLookupLimit(*stored)
 			log.Warn("Update txLookup limit", "provided", limit, "updated", *stored)
@@ -278,6 +281,6 @@ func (h *handler) doSync(op *chainSyncOp) error {
 		// degenerate connectivity, but it should be healthy for the mainnet too to
 		// more reliably update peers or the local TD state.
 		h.BroadcastBlock(head, false)
-	}
+	} // 동기화한후 노드들에게 새 상태를 알린다.
 	return nil
 }

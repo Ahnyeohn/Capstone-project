@@ -341,6 +341,7 @@ func prepare(ctx *cli.Context) {
 // It creates a default node based on the command line arguments and runs it in
 // blocking mode, waiting for it to be shut down.
 func geth(ctx *cli.Context) error {
+	fmt.Println("Func: geth()")
 	if args := ctx.Args().Slice(); len(args) > 0 {
 		return fmt.Errorf("invalid command: %q", args[0])
 	}
@@ -357,11 +358,14 @@ func geth(ctx *cli.Context) error {
 // startNode boots up the system node and all registered protocols, after which
 // it unlocks any requested accounts, and starts the RPC/IPC interfaces and the
 // miner.
+// 이 함수는  makeFullNode로 생성한 backend와 stack을 통해 노드를 시작한다
+//노드를 시작 :  클라이언트를 만들고 지갑 이벤트를 수행 및 대기
 func startNode(ctx *cli.Context, stack *node.Node, backend ethapi.Backend, isConsole bool) {
+	fmt.Println("Func: startNode()")
 	debug.Memsize.Add("node", stack)
 
 	// Start up the node itself
-	utils.StartNode(ctx, stack, isConsole)
+	utils.StartNode(ctx, stack, isConsole) // 얘는 rpc와 p2p 네트워크를 위한 라이프사이클을 시작한다.
 
 	// Unlock any account specifically requested
 	unlockAccounts(ctx, stack)

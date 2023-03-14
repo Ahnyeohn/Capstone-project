@@ -17,15 +17,12 @@
 package adapters
 
 import (
-	"context"
 	"errors"
 	"fmt"
-	"math"
 	"net"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/event"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/p2p/enode"
@@ -61,84 +58,88 @@ func (s *SimAdapter) Name() string {
 }
 
 // NewNode returns a new SimNode using the given config
-func (s *SimAdapter) NewNode(config *NodeConfig) (Node, error) {
-	s.mtx.Lock()
-	defer s.mtx.Unlock()
+// fix: not required
+// func (s *SimAdapter) NewNode(config *NodeConfig) (Node, error) {
+// 	s.mtx.Lock()
+// 	defer s.mtx.Unlock()
 
-	id := config.ID
-	// verify that the node has a private key in the config
-	if config.PrivateKey == nil {
-		return nil, fmt.Errorf("node is missing private key: %s", id)
-	}
+// 	id := config.ID
+// 	// verify that the node has a private key in the config
+// 	if config.PrivateKey == nil {
+// 		return nil, fmt.Errorf("node is missing private key: %s", id)
+// 	}
 
-	// check a node with the ID doesn't already exist
-	if _, exists := s.nodes[id]; exists {
-		return nil, fmt.Errorf("node already exists: %s", id)
-	}
+// 	// check a node with the ID doesn't already exist
+// 	if _, exists := s.nodes[id]; exists {
+// 		return nil, fmt.Errorf("node already exists: %s", id)
+// 	}
 
-	// check the services are valid
-	if len(config.Lifecycles) == 0 {
-		return nil, errors.New("node must have at least one service")
-	}
-	for _, service := range config.Lifecycles {
-		if _, exists := s.lifecycles[service]; !exists {
-			return nil, fmt.Errorf("unknown node service %q", service)
-		}
-	}
+// 	// check the services are valid
+// 	if len(config.Lifecycles) == 0 {
+// 		return nil, errors.New("node must have at least one service")
+// 	}
+// 	for _, service := range config.Lifecycles {
+// 		if _, exists := s.lifecycles[service]; !exists {
+// 			return nil, fmt.Errorf("unknown node service %q", service)
+// 		}
+// 	}
 
-	err := config.initDummyEnode()
-	if err != nil {
-		return nil, err
-	}
+// 	err := config.initDummyEnode()
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	n, err := node.New(&node.Config{
-		P2P: p2p.Config{
-			PrivateKey:      config.PrivateKey,
-			MaxPeers:        math.MaxInt32,
-			NoDiscovery:     true,
-			Dialer:          s,
-			EnableMsgEvents: config.EnableMsgEvents,
-		},
-		ExternalSigner: config.ExternalSigner,
-		Logger:         log.New("node.id", id.String()),
-	})
-	if err != nil {
-		return nil, err
-	}
+// 	n, err := node.New(&node.Config{
+// 		P2P: p2p.Config{
+// 			PrivateKey:      config.PrivateKey,
+// 			MaxPeers:        math.MaxInt32,
+// 			NoDiscovery:     true,
+// 			Dialer:          s,
+// 			EnableMsgEvents: config.EnableMsgEvents,
+// 		},
+// 		ExternalSigner: config.ExternalSigner,
+// 		Logger:         log.New("node.id", id.String()),
+// 	})
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	simNode := &SimNode{
-		ID:      id,
-		config:  config,
-		node:    n,
-		adapter: s,
-		running: make(map[string]node.Lifecycle),
-	}
-	s.nodes[id] = simNode
-	return simNode, nil
-}
+// 	simNode := &SimNode{
+// 		ID:      id,
+// 		config:  config,
+// 		node:    n,
+// 		adapter: s,
+// 		running: make(map[string]node.Lifecycle),
+// 	}
+// 	s.nodes[id] = simNode
+// 	return simNode, nil
+// }
 
 // Dial implements the p2p.NodeDialer interface by connecting to the node using
 // an in-memory net.Pipe
-func (s *SimAdapter) Dial(ctx context.Context, dest *enode.Node) (conn net.Conn, err error) {
-	node, ok := s.GetNode(dest.ID())
-	if !ok {
-		return nil, fmt.Errorf("unknown node: %s", dest.ID())
-	}
-	srv := node.Server()
-	if srv == nil {
-		return nil, fmt.Errorf("node not running: %s", dest.ID())
-	}
-	// SimAdapter.pipe is net.Pipe (NewSimAdapter)
-	pipe1, pipe2, err := s.pipe()
-	if err != nil {
-		return nil, err
-	}
-	// this is simulated 'listening'
-	// asynchronously call the dialed destination node's p2p server
-	// to set up connection on the 'listening' side
-	go srv.SetupConn(pipe1, 0, nil)
-	return pipe2, nil
-}
+// fix: not required
+
+// func (s *SimAdapter) Dial(ctx context.Context, dest *enode.Node) (conn quic.Connection, err error) {
+// 	fmt.Println("Func: Dial()")
+// 	node, ok := s.GetNode(dest.ID())
+// 	if !ok {
+// 		return nil, fmt.Errorf("unknown node: %s", dest.ID())
+// 	}
+// 	srv := node.Server()
+// 	if srv == nil {
+// 		return nil, fmt.Errorf("node not running: %s", dest.ID())
+// 	}
+// 	// SimAdapter.pipe is net.Pipe (NewSimAdapter)
+// 	pipe1, pipe2, err := s.pipe()
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	// this is simulated 'listening'
+// 	// asynchronously call the dialed destination node's p2p server
+// 	// to set up connection on the 'listening' side
+// 	go srv.SetupConn(pipe1, 0, nil)
+// 	return pipe2, nil
+// }
 
 // DialRPC implements the RPCDialer interface by creating an in-memory RPC
 // client of the given node

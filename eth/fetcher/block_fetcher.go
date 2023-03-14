@@ -230,6 +230,7 @@ func NewBlockFetcher(light bool, getHeader HeaderRetrievalFn, getBlock blockRetr
 // Start boots up the announcement based synchroniser, accepting and processing
 // hash notifications and block fetches until termination requested.
 func (f *BlockFetcher) Start() {
+	fmt.Println("Func: Start()-f")
 	go f.loop()
 }
 
@@ -331,8 +332,10 @@ func (f *BlockFetcher) FilterBodies(peer string, transactions [][]*types.Transac
 
 // Loop is the main fetcher loop, checking and processing various notification
 // events.
+//blockfetcher는 일종의 서버에서 데이터를 조회하기 위한 모듈?
 func (f *BlockFetcher) loop() {
 	// Iterate the block fetching until a quit is requested
+	fmt.Println("Func: eth/fetcher/loop()")
 	var (
 		fetchTimer    = time.NewTimer(0)
 		completeTimer = time.NewTimer(0)
@@ -351,7 +354,7 @@ func (f *BlockFetcher) loop() {
 		}
 		// Import any queued blocks that could potentially fit
 		height := f.chainHeight()
-		for !f.queue.Empty() {
+		for !f.queue.Empty() { // queue가 빌때까지 반복
 			op := f.queue.PopItem().(*blockOrHeaderInject)
 			hash := op.hash()
 			if f.queueChangeHook != nil {
@@ -359,12 +362,12 @@ func (f *BlockFetcher) loop() {
 			}
 			// If too high up the chain or phase, continue later
 			number := op.number()
-			if number > height+1 {
-				f.queue.Push(op, -int64(number))
+			if number > height+1 { // 블록넘버가 너무 크면
+				f.queue.Push(op, -int64(number)) // 다시 queue에 넣기
 				if f.queueChangeHook != nil {
 					f.queueChangeHook(hash, true)
 				}
-				break
+				break // 그리고 반복문 탈출 (더이상 블록을 추가하지 않음)
 			}
 			// Otherwise if fresh and still unknown, try and import
 			if (number+maxUncleDist < height) || (f.light && f.getHeader(hash) != nil) || (!f.light && f.getBlock(hash) != nil) {
@@ -837,6 +840,7 @@ func (f *BlockFetcher) importHeaders(peer string, header *types.Header) {
 //  spawns a new goroutine to run a block insertion into the chain. If the
 // block's number is at the same height as the current import phase, it updates
 // the phase states accordingly.
+//체인에 블록 삽입
 func (f *BlockFetcher) importBlocks(peer string, block *types.Block) {
 	fmt.Println("Func: importBlocks")
 	hash := block.Hash()

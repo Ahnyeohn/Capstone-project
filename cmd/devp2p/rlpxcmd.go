@@ -17,14 +17,15 @@
 package main
 
 import (
+	"crypto/tls"
 	"fmt"
-	"net"
 
 	"github.com/ethereum/go-ethereum/cmd/devp2p/internal/ethtest"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/p2p/rlpx"
 	"github.com/ethereum/go-ethereum/rlp"
+	quic "github.com/quic-go/quic-go"
 	"github.com/urfave/cli/v2"
 )
 
@@ -66,12 +67,31 @@ var (
 )
 
 func rlpxPing(ctx *cli.Context) error {
+	fmt.Println("func: rlpxPing")
 	n := getNodeArg(ctx)
-	fd, err := net.Dial("tcp", fmt.Sprintf("%v:%d", n.IP(), n.TCP()))
+
+	//fix:
+	// fd, err := net.Dial("tcp", fmt.Sprintf("%v:%d", n.IP(), n.TCP()))
+	// if err != nil {
+	// 	return err
+	// }
+
+	tlsConf := &tls.Config{
+		InsecureSkipVerify: true,
+		NextProtos:         []string{"quic-echo-example"},
+	}
+	//fix: fd, err := net.Dial(s.Dest.String(), tlsConf, nil)
+	fd, err := quic.DialAddr(n.IP().String(), tlsConf, nil)
 	if err != nil {
 		return err
 	}
-	conn := rlpx.NewConn(fd, n.Pubkey())
+
+	stream, err := fd.OpenStreamSync(ctx.Context)
+	if err != nil {
+		return err
+	}
+
+	conn := rlpx.NewConn(fd, stream, n.Pubkey())
 	ourKey, _ := crypto.GenerateKey()
 	_, err = conn.Handshake(ourKey)
 	if err != nil {

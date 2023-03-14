@@ -38,6 +38,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto/ecies"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/golang/snappy"
+	quic "github.com/quic-go/quic-go"
 	"golang.org/x/crypto/sha3"
 )
 
@@ -49,8 +50,11 @@ import (
 // may happen concurrently after the handshake.
 type Conn struct {
 	dialDest *ecdsa.PublicKey
-	conn     net.Conn
-	session  *sessionState
+
+	conn    quic.Connection
+	fd      net.Conn
+	stream  quic.Stream
+	session *sessionState
 
 	// These are the buffers for snappy compression.
 	// Compression is enabled if they are non-nil.
@@ -91,10 +95,13 @@ func newHashMAC(cipher cipher.Block, h hash.Hash) hashMAC {
 
 // NewConn wraps the given network connection. If dialDest is non-nil, the connection
 // behaves as the initiator during the handshake.
-func NewConn(conn net.Conn, dialDest *ecdsa.PublicKey) *Conn {
+//fix: func NewConn(conn net.Conn, dialDest *ecdsa.PublicKey) *Conn {
+func NewConn(conn quic.Connection, stream quic.Stream, dialDest *ecdsa.PublicKey) *Conn {
+	fmt.Println("Func: NewConn()")
 	return &Conn{
 		dialDest: dialDest,
 		conn:     conn,
+		stream:   stream,
 	}
 }
 
@@ -113,27 +120,33 @@ func (c *Conn) SetSnappy(snappy bool) {
 
 // SetReadDeadline sets the deadline for all future read operations.
 func (c *Conn) SetReadDeadline(time time.Time) error {
-	return c.conn.SetReadDeadline(time)
+	// fix: return c.conn.SetReadDeadline(time)
+	return c.stream.SetReadDeadline(time)
+
 }
 
 // SetWriteDeadline sets the deadline for all future write operations.
 func (c *Conn) SetWriteDeadline(time time.Time) error {
-	return c.conn.SetWriteDeadline(time)
+	// fix: return c.conn.SetWriteDeadline(time)
+	return c.stream.SetWriteDeadline(time)
 }
 
 // SetDeadline sets the deadline for all future read and write operations.
 func (c *Conn) SetDeadline(time time.Time) error {
-	return c.conn.SetDeadline(time)
+	// fix: return c.conn.SetDeadline(time)
+	return c.stream.SetDeadline(time)
 }
 
 // Read reads a message from the connection.
 // The returned data buffer is valid until the next call to Read.
 func (c *Conn) Read() (code uint64, data []byte, wireSize int, err error) {
+	fmt.Println("Conn.Read()")
 	if c.session == nil {
 		panic("can't ReadMsg before handshake")
 	}
 
-	frame, err := c.session.readFrame(c.conn)
+	//fix:  frame, err := c.session.readFrame(c.conn)
+	frame, err := c.session.readFrame(c.stream)
 	if err != nil {
 		return 0, nil, 0, err
 	}
@@ -208,10 +221,11 @@ func (h *sessionState) readFrame(conn io.Reader) ([]byte, error) {
 //
 // Write returns the written size of the message data. This may be less than or equal to
 // len(data) depending on whether snappy compression is enabled.
-func (c *Conn) Write(code uint64, data []byte) (uint32, error) {
+func (c *Conn) Write(code uint64, data []byte) (uint32, error) { //얘도 호출되니까 참고 rlpx!!!
+	fmt.Println("Func: rlpx/Write()")
 	if c.session == nil {
 		panic("can't WriteMsg before handshake")
-	}
+	} //아 세션은
 	if len(data) > maxUint24 {
 		return 0, errPlainMessageTooLarge
 	}
@@ -224,11 +238,13 @@ func (c *Conn) Write(code uint64, data []byte) (uint32, error) {
 	}
 
 	wireSize := uint32(len(data))
-	err := c.session.writeFrame(c.conn, code, data)
+	//fix: err := c.session.writeFrame(c.stream, code, data)
+	err := c.session.writeFrame(c.stream, code, data)
 	return wireSize, err
 }
 
-func (h *sessionState) writeFrame(conn io.Writer, code uint64, data []byte) error {
+//fix: func (h *sessionState) writeFrame(conn io.Writer, code uint64, data []byte) error {
+func (h *sessionState) writeFrame(stream quic.Stream, code uint64, data []byte) error {
 	h.wbuf.reset()
 
 	// Write header.
@@ -241,12 +257,18 @@ func (h *sessionState) writeFrame(conn io.Writer, code uint64, data []byte) erro
 	copy(header[3:], zeroHeader)
 	h.enc.XORKeyStream(header, header)
 
-	// Write header MAC.
+	// Write header MAC. MAC: 2계층에서 사용되는 것으로 MAC 헤더
 	h.wbuf.Write(h.egressMAC.computeHeader(header))
 
 	// Encode and encrypt the frame data.
 	offset := len(h.wbuf.data)
-	h.wbuf.data = rlp.AppendUint64(h.wbuf.data, code)
+	h.wbuf.data = rlp.AppendUint64(h.wbuf.data, code) // rlp 인코딩 적용
+	/*RLP는 이더리움 네트워크에서 쓰이는 직렬화(serialization) 기법이다.
+	바이트 스트림은 최소 단위를 바이트로 하는 데이터 묶음이다.
+	데이터를 파일에 저장하거나 네트워크에서 전송하기 위해서는 바이트 스트림 형식으로 변환되어야 한다.
+	RLP는 데이터를 저장하거나 전송하는데 필요한 통일된 포맷을 제공한다.
+	데이터는 RLP로 변환되어 트랜잭션 전송, 블록 state 및 receipt 저장, DB 저장 등에 사용된다.*/
+
 	h.wbuf.Write(data)
 	if padding := fsize % 16; padding > 0 {
 		h.wbuf.appendZero(16 - padding)
@@ -257,8 +279,10 @@ func (h *sessionState) writeFrame(conn io.Writer, code uint64, data []byte) erro
 	// Write frame MAC.
 	h.wbuf.Write(h.egressMAC.computeFrame(framedata))
 
-	_, err := conn.Write(h.wbuf.data)
+	//fix: _, err := conn.Write(h.wbuf.data)
+	_, err := stream.Write(h.wbuf.data) // 요게 중요하다. 이 함수를 quic으로 바꾸기?
 	return err
+
 }
 
 // computeHeader computes the MAC of a frame header.
@@ -298,20 +322,23 @@ func (m *hashMAC) compute(sum1, seed []byte) []byte {
 // Handshake performs the handshake. This must be called before any data is written
 // or read from the connection.
 func (c *Conn) Handshake(prv *ecdsa.PrivateKey) (*ecdsa.PublicKey, error) {
+	fmt.Println("Func: Handshake()")
 	var (
 		sec Secrets
 		err error
 		h   handshakeState
 	)
 	if c.dialDest != nil {
-		sec, err = h.runInitiator(c.conn, prv, c.dialDest)
+		// fix: sec, err = h.runInitiator(c.conn, prv, c.dialDest)
+		sec, err = h.runInitiator(c.stream, prv, c.dialDest)
 	} else {
-		sec, err = h.runRecipient(c.conn, prv)
+		// fix: sec, err = h.runRecipient(c.conn, prv)
+		sec, err = h.runRecipient(c.stream, prv)
 	}
 	if err != nil {
 		return nil, err
 	}
-	c.InitWithSecrets(sec)
+	c.InitWithSecrets(sec) //이 함수를 통해서 새로운 세션이 생성된다.
 	c.session.rbuf = h.rbuf
 	c.session.wbuf = h.wbuf
 	return sec.remote, err
@@ -344,7 +371,8 @@ func (c *Conn) InitWithSecrets(sec Secrets) {
 
 // Close closes the underlying network connection.
 func (c *Conn) Close() error {
-	return c.conn.Close()
+	// fix: return c.conn.Close()
+	return c.stream.Close()
 }
 
 // Constants for the handshake.

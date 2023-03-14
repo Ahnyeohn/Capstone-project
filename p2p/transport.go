@@ -21,7 +21,6 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"io"
-	"net"
 	"sync"
 	"time"
 
@@ -30,6 +29,7 @@ import (
 	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/ethereum/go-ethereum/p2p/rlpx"
 	"github.com/ethereum/go-ethereum/rlp"
+	quic "github.com/quic-go/quic-go"
 )
 
 const (
@@ -51,11 +51,14 @@ type rlpxTransport struct {
 	conn     *rlpx.Conn
 }
 
-func newRLPX(conn net.Conn, dialDest *ecdsa.PublicKey) transport {
-	return &rlpxTransport{conn: rlpx.NewConn(conn, dialDest)}
+//fix: func newRLPX(conn net.Conn, dialDest *ecdsa.PublicKey) transport {
+func newRLPX(conn quic.Connection, stream quic.Stream, dialDest *ecdsa.PublicKey) transport {
+	fmt.Println("Func: newRLPX()")
+	return &rlpxTransport{conn: rlpx.NewConn(conn, stream, dialDest)} // 여기에 인자가 있다는건 어디서 받아온걸 넣겠다는거 아닌가? 의심
 }
 
 func (t *rlpxTransport) ReadMsg() (Msg, error) {
+	fmt.Println("func: rt/ReadMsg()")
 	t.rmu.Lock()
 	defer t.rmu.Unlock()
 
@@ -78,7 +81,9 @@ func (t *rlpxTransport) ReadMsg() (Msg, error) {
 	return msg, err
 }
 
+//적게나마 호출이 되는듯 그리고 내부적으로 rlpx.write함수호출
 func (t *rlpxTransport) WriteMsg(msg Msg) error {
+	fmt.Println("Func: rt/WriteMsg()")
 	t.wmu.Lock()
 	defer t.wmu.Unlock()
 
@@ -90,7 +95,7 @@ func (t *rlpxTransport) WriteMsg(msg Msg) error {
 
 	// Write the message.
 	t.conn.SetWriteDeadline(time.Now().Add(frameWriteTimeout))
-	size, err := t.conn.Write(msg.Code, t.wbuf.Bytes())
+	size, err := t.conn.Write(msg.Code, t.wbuf.Bytes()) // conn 구조체를 통해 세션에 접근
 	if err != nil {
 		return err
 	}
@@ -127,6 +132,7 @@ func (t *rlpxTransport) close(err error) {
 }
 
 func (t *rlpxTransport) doEncHandshake(prv *ecdsa.PrivateKey) (*ecdsa.PublicKey, error) {
+	fmt.Println("Func: doEncHandshake()")
 	t.conn.SetDeadline(time.Now().Add(handshakeTimeout))
 	return t.conn.Handshake(prv)
 }
@@ -136,6 +142,7 @@ func (t *rlpxTransport) doProtoHandshake(our *protoHandshake) (their *protoHands
 	// returning the handshake read error. If the remote side
 	// disconnects us early with a valid reason, we should return it
 	// as the error so it can be tracked elsewhere.
+	fmt.Println("Func: doProtoHandshake()")
 	werr := make(chan error, 1)
 	go func() { werr <- Send(t, handshakeMsg, our) }()
 	if their, err = readProtocolHandshake(t); err != nil {

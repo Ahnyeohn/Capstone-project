@@ -159,6 +159,7 @@ func New(conf *Config) (*Node, error) {
 // Start starts all registered lifecycles, RPC services and p2p networking.
 // Node can only be started once.
 func (n *Node) Start() error {
+	fmt.Println("Func: node/Start()")
 	n.startStopLock.Lock()
 	defer n.startStopLock.Unlock()
 

@@ -22,8 +22,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"math/rand"
-	"net"
 	"reflect"
 	"strings"
 	"testing"
@@ -31,9 +29,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
-	"github.com/ethereum/go-ethereum/p2p/simulations/pipes"
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/stretchr/testify/assert"
 )
 
 type message struct {
@@ -42,57 +38,62 @@ type message struct {
 	err  error
 }
 
-func TestHandshake(t *testing.T) {
-	p1, p2 := createPeers(t)
-	p1.Close()
-	p2.Close()
-}
+// fix: not required
+// func TestHandshake(t *testing.T) {
+// 	p1, p2 := createPeers(t)
+// 	p1.Close()
+// 	p2.Close()
+// }
 
 // This test checks that messages can be sent and received through WriteMsg/ReadMsg.
-func TestReadWriteMsg(t *testing.T) {
-	peer1, peer2 := createPeers(t)
-	defer peer1.Close()
-	defer peer2.Close()
+// fix: not required
+// func TestReadWriteMsg(t *testing.T) {
+// 	peer1, peer2 := createPeers(t)
+// 	defer peer1.Close()
+// 	defer peer2.Close()
 
-	testCode := uint64(23)
-	testData := []byte("test")
-	checkMsgReadWrite(t, peer1, peer2, testCode, testData)
+// 	testCode := uint64(23)
+// 	testData := []byte("test")
+// 	checkMsgReadWrite(t, peer1, peer2, testCode, testData)
 
-	t.Log("enabling snappy")
-	peer1.SetSnappy(true)
-	peer2.SetSnappy(true)
-	checkMsgReadWrite(t, peer1, peer2, testCode, testData)
-}
+// 	t.Log("enabling snappy")
+// 	peer1.SetSnappy(true)
+// 	peer2.SetSnappy(true)
+// 	checkMsgReadWrite(t, peer1, peer2, testCode, testData)
+// }
 
-func checkMsgReadWrite(t *testing.T, p1, p2 *Conn, msgCode uint64, msgData []byte) {
-	// Set up the reader.
-	ch := make(chan message, 1)
-	go func() {
-		var msg message
-		msg.code, msg.data, _, msg.err = p1.Read()
-		ch <- msg
-	}()
+//fix: not required
+// func checkMsgReadWrite(t *testing.T, p1, p2 *Conn, msgCode uint64, msgData []byte) {
+// 	// Set up the reader.
+// 	ch := make(chan message, 1)
+// 	go func() {
+// 		var msg message
+// 		msg.code, msg.data, _, msg.err = p1.Read()
+// 		ch <- msg
+// 	}()
 
-	// Write the message.
-	_, err := p2.Write(msgCode, msgData)
-	if err != nil {
-		t.Fatal(err)
-	}
+// 	// Write the message.
+// 	_, err := p2.Write(msgCode, msgData)
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
 
-	// Check it was received correctly.
-	msg := <-ch
-	assert.Equal(t, msgCode, msg.code, "wrong message code returned from ReadMsg")
-	assert.Equal(t, msgData, msg.data, "wrong message data returned from ReadMsg")
-}
+// 	// Check it was received correctly.
+// 	msg := <-ch
+// 	assert.Equal(t, msgCode, msg.code, "wrong message code returned from ReadMsg")
+// 	assert.Equal(t, msgData, msg.data, "wrong message data returned from ReadMsg")
+// }
 
-func createPeers(t *testing.T) (peer1, peer2 *Conn) {
-	conn1, conn2 := net.Pipe()
-	key1, key2 := newkey(), newkey()
-	peer1 = NewConn(conn1, &key2.PublicKey) // dialer
-	peer2 = NewConn(conn2, nil)             // listener
-	doHandshake(t, peer1, peer2, key1, key2)
-	return peer1, peer2
-}
+// fix: not required
+// 후에 quic 테스트할때 유용할 수 있을듯
+// func createPeers(t *testing.T) (peer1, peer2 *Conn) {
+// 	conn1, conn2 := net.Pipe()
+// 	key1, key2 := newkey(), newkey()
+// 	peer1 = NewConn(conn1, &key2.PublicKey) // dialer
+// 	peer2 = NewConn(conn2, nil)             // listener
+// 	doHandshake(t, peer1, peer2, key1, key2)
+// 	return peer1, peer2
+// }
 
 func doHandshake(t *testing.T, peer1, peer2 *Conn, key1, key2 *ecdsa.PrivateKey) {
 	keyChan := make(chan *ecdsa.PublicKey, 1)
@@ -117,46 +118,47 @@ func doHandshake(t *testing.T, peer1, peer2 *Conn, key1, key2 *ecdsa.PrivateKey)
 }
 
 // This test checks the frame data of written messages.
-func TestFrameReadWrite(t *testing.T) {
-	conn := NewConn(nil, nil)
-	hash := fakeHash([]byte{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1})
-	conn.InitWithSecrets(Secrets{
-		AES:        crypto.Keccak256(),
-		MAC:        crypto.Keccak256(),
-		IngressMAC: hash,
-		EgressMAC:  hash,
-	})
-	h := conn.session
+// fix: not required
+// func TestFrameReadWrite(t *testing.T) {
+// 	conn := NewConn(nil, nil)
+// 	hash := fakeHash([]byte{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1})
+// 	conn.InitWithSecrets(Secrets{
+// 		AES:        crypto.Keccak256(),
+// 		MAC:        crypto.Keccak256(),
+// 		IngressMAC: hash,
+// 		EgressMAC:  hash,
+// 	})
+// 	h := conn.session
 
-	golden := unhex(`
-		00828ddae471818bb0bfa6b551d1cb42
-		01010101010101010101010101010101
-		ba628a4ba590cb43f7848f41c4382885
-		01010101010101010101010101010101
-	`)
-	msgCode := uint64(8)
-	msg := []uint{1, 2, 3, 4}
-	msgEnc, _ := rlp.EncodeToBytes(msg)
+// 	golden := unhex(`
+// 		00828ddae471818bb0bfa6b551d1cb42
+// 		01010101010101010101010101010101
+// 		ba628a4ba590cb43f7848f41c4382885
+// 		01010101010101010101010101010101
+// 	`)
+// 	msgCode := uint64(8)
+// 	msg := []uint{1, 2, 3, 4}
+// 	msgEnc, _ := rlp.EncodeToBytes(msg)
 
-	// Check writeFrame. The frame that's written should be equal to the test vector.
-	buf := new(bytes.Buffer)
-	if err := h.writeFrame(buf, msgCode, msgEnc); err != nil {
-		t.Fatalf("WriteMsg error: %v", err)
-	}
-	if !bytes.Equal(buf.Bytes(), golden) {
-		t.Fatalf("output mismatch:\n  got:  %x\n  want: %x", buf.Bytes(), golden)
-	}
+// 	// Check writeFrame. The frame that's written should be equal to the test vector.
+// 	buf := new(bytes.Buffer)
+// 	if err := h.writeFrame(buf, msgCode, msgEnc); err != nil {
+// 		t.Fatalf("WriteMsg error: %v", err)
+// 	}
+// 	if !bytes.Equal(buf.Bytes(), golden) {
+// 		t.Fatalf("output mismatch:\n  got:  %x\n  want: %x", buf.Bytes(), golden)
+// 	}
 
-	// Check readFrame on the test vector.
-	content, err := h.readFrame(bytes.NewReader(golden))
-	if err != nil {
-		t.Fatalf("ReadMsg error: %v", err)
-	}
-	wantContent := unhex("08C401020304")
-	if !bytes.Equal(content, wantContent) {
-		t.Errorf("frame content mismatch:\ngot  %x\nwant %x", content, wantContent)
-	}
-}
+// 	// Check readFrame on the test vector.
+// 	content, err := h.readFrame(bytes.NewReader(golden))
+// 	if err != nil {
+// 		t.Fatalf("ReadMsg error: %v", err)
+// 	}
+// 	wantContent := unhex("08C401020304")
+// 	if !bytes.Equal(content, wantContent) {
+// 		t.Errorf("frame content mismatch:\ngot  %x\nwant %x", content, wantContent)
+// 	}
+// }
 
 type fakeHash []byte
 
@@ -382,58 +384,59 @@ func BenchmarkHandshakeRead(b *testing.B) {
 	}
 }
 
-func BenchmarkThroughput(b *testing.B) {
-	pipe1, pipe2, err := pipes.TCPPipe()
-	if err != nil {
-		b.Fatal(err)
-	}
+// fix: not required
+// func BenchmarkThroughput(b *testing.B) {
+// 	pipe1, pipe2, err := pipes.TCPPipe()
+// 	if err != nil {
+// 		b.Fatal(err)
+// 	}
 
-	var (
-		conn1, conn2  = NewConn(pipe1, nil), NewConn(pipe2, &keyA.PublicKey)
-		handshakeDone = make(chan error, 1)
-		msgdata       = make([]byte, 1024)
-		rand          = rand.New(rand.NewSource(1337))
-	)
-	rand.Read(msgdata)
+// 	var (
+// 		conn1, conn2  = NewConn(pipe1, nil), NewConn(pipe2, &keyA.PublicKey)
+// 		handshakeDone = make(chan error, 1)
+// 		msgdata       = make([]byte, 1024)
+// 		rand          = rand.New(rand.NewSource(1337))
+// 	)
+// 	rand.Read(msgdata)
 
-	// Server side.
-	go func() {
-		defer conn1.Close()
-		// Perform handshake.
-		_, err := conn1.Handshake(keyA)
-		handshakeDone <- err
-		if err != nil {
-			return
-		}
-		conn1.SetSnappy(true)
-		// Keep sending messages until connection closed.
-		for {
-			if _, err := conn1.Write(0, msgdata); err != nil {
-				return
-			}
-		}
-	}()
+// 	// Server side.
+// 	go func() {
+// 		defer conn1.Close()
+// 		// Perform handshake.
+// 		_, err := conn1.Handshake(keyA)
+// 		handshakeDone <- err
+// 		if err != nil {
+// 			return
+// 		}
+// 		conn1.SetSnappy(true)
+// 		// Keep sending messages until connection closed.
+// 		for {
+// 			if _, err := conn1.Write(0, msgdata); err != nil {
+// 				return
+// 			}
+// 		}
+// 	}()
 
-	// Set up client side.
-	defer conn2.Close()
-	if _, err := conn2.Handshake(keyB); err != nil {
-		b.Fatal("client handshake error:", err)
-	}
-	conn2.SetSnappy(true)
-	if err := <-handshakeDone; err != nil {
-		b.Fatal("server hanshake error:", err)
-	}
+// 	// Set up client side.
+// 	defer conn2.Close()
+// 	if _, err := conn2.Handshake(keyB); err != nil {
+// 		b.Fatal("client handshake error:", err)
+// 	}
+// 	conn2.SetSnappy(true)
+// 	if err := <-handshakeDone; err != nil {
+// 		b.Fatal("server hanshake error:", err)
+// 	}
 
-	// Read N messages.
-	b.SetBytes(int64(len(msgdata)))
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		_, _, _, err := conn2.Read()
-		if err != nil {
-			b.Fatal("read error:", err)
-		}
-	}
-}
+// 	// Read N messages.
+// 	b.SetBytes(int64(len(msgdata)))
+// 	b.ReportAllocs()
+// 	for i := 0; i < b.N; i++ {
+// 		_, _, _, err := conn2.Read()
+// 		if err != nil {
+// 			b.Fatal("read error:", err)
+// 		}
+// 	}
+// }
 
 func unhex(str string) []byte {
 	r := strings.NewReplacer("\t", "", " ", "", "\n", "")

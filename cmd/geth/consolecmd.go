@@ -69,14 +69,16 @@ JavaScript API. See https://geth.ethereum.org/docs/interface/javascript-console`
 // same time.
 func localConsole(ctx *cli.Context) error {
 	// Create and start the node based on the CLI flags
-	fmt.Println("Func: localConsole()")
+	fmt.Println("haha this is quic fix ver")
+	//fmt.Println("Func: localConsole()")
 	prepare(ctx)
 	stack, backend := makeFullNode(ctx)
-	startNode(ctx, stack, backend, true)
+	startNode(ctx, stack, backend, true) //노드를 시작 :  클라이언트를 만들고 지갑 이벤트를 수행 및 대기
 	defer stack.Close()
 
 	// Attach to the newly started node and create the JavaScript console.
-	client, err := stack.Attach()
+
+	client, err := stack.Attach() //새로 시작된 노드에 연결하고 JavaScript 콘솔을 만듭니다.
 	if err != nil {
 		return fmt.Errorf("Failed to attach to the inproc geth: %v", err)
 	}
@@ -86,7 +88,7 @@ func localConsole(ctx *cli.Context) error {
 		Client:  client,
 		Preload: utils.MakeConsolePreloads(ctx),
 	}
-	console, err := console.New(config)
+	console, err := console.New(config) //JavaScript interpreted runtime environment를 시작
 	if err != nil {
 		return fmt.Errorf("Failed to start the JavaScript console: %v", err)
 	}
@@ -114,6 +116,8 @@ func localConsole(ctx *cli.Context) error {
 // remoteConsole will connect to a remote geth instance, attaching a JavaScript
 // console to it.
 func remoteConsole(ctx *cli.Context) error {
+
+	fmt.Println("Func: remoteConsole()")
 	if ctx.Args().Len() > 1 {
 		utils.Fatalf("invalid command-line: too many arguments")
 	}

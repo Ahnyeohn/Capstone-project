@@ -325,6 +325,7 @@ func handleNewBlockhashes(backend Backend, msg Decoder, peer *Peer) error {
 	return backend.Handle(peer, ann)
 }
 
+//전파된 블록을 처리, decode (받은 것으로 표시) , 핸들러 반환
 func handleNewBlock(backend Backend, msg Decoder, peer *Peer) error {
 	// Retrieve and decode the propagated block
 	fmt.Println("Func: handleNewBlock()")
@@ -349,7 +350,7 @@ func handleNewBlock(backend Backend, msg Decoder, peer *Peer) error {
 	// Mark the peer as owning the block
 	peer.markBlock(ann.Block.Hash())
 
-	return backend.Handle(peer, ann)
+	return backend.Handle(peer, ann) // 콜백함수 실행
 }
 
 func handleBlockHeaders66(backend Backend, msg Decoder, peer *Peer) error {

@@ -17,8 +17,9 @@
 package ethtest
 
 import (
+	"context"
+	"crypto/tls"
 	"fmt"
-	"net"
 	"reflect"
 	"strings"
 	"time"
@@ -31,6 +32,7 @@ import (
 	"github.com/ethereum/go-ethereum/internal/utesting"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/p2p/rlpx"
+	quic "github.com/quic-go/quic-go"
 )
 
 var (
@@ -47,11 +49,23 @@ var (
 // returning the created Conn if successful.
 func (s *Suite) dial() (*Conn, error) {
 	// dial
-	fd, err := net.Dial("tcp", fmt.Sprintf("%v:%d", s.Dest.IP(), s.Dest.TCP()))
+	fmt.Println("Func: !!!!!!!!!!!!!!1dialdial!!!!!!!!!!!!()")
+	tlsConf := &tls.Config{
+		InsecureSkipVerify: true,
+		NextProtos:         []string{"quic-echo-example"},
+	}
+	//fix: fd, err := net.Dial(s.Dest.String(), tlsConf, nil)
+	fd, err := quic.DialAddr(s.Dest.IP().String(), tlsConf, nil)
 	if err != nil {
 		return nil, err
 	}
-	conn := Conn{Conn: rlpx.NewConn(fd, s.Dest.Pubkey())}
+
+	stream, err := fd.OpenStreamSync(context.Background())
+	if err != nil {
+		panic(err)
+	}
+	//fix: conn := Conn{Conn: rlpx.NewConn(fd, s.Dest.Pubkey())}
+	conn := Conn{Conn: rlpx.NewConn(fd, stream, s.Dest.Pubkey())}
 	// do encHandshake
 	conn.ourKey, _ = crypto.GenerateKey()
 	_, err = conn.Handshake(conn.ourKey)
@@ -94,6 +108,7 @@ func (c *Conn) peer(chain *Chain, status *Status) error {
 
 // handshake performs a protocol handshake with the node.
 func (c *Conn) handshake() error {
+	fmt.Println("Func: protocol handshake()")
 	defer c.SetDeadline(time.Time{})
 	c.SetDeadline(time.Now().Add(10 * time.Second))
 	// write hello to client

@@ -185,18 +185,21 @@ func (p *Peer) dispatchResponse(res *Response, metadata func() interface{}) erro
 // dispatcher is a loop that accepts requests from higher layer packages, pushes
 // it to the network and tracks and dispatches the responses back to the original
 // requester.
+//(상위 계층의) 요청을 받고 대기, 전송 / 대기중인 요청 진행 및 처리 // 이부분은 잘 모르겠다. 내용이 안들어온다.
 func (p *Peer) dispatcher() {
+
 	fmt.Println("Func: dispatcher()")
 	pending := make(map[uint64]*Request)
 
 	for {
 		select {
-		case reqOp := <-p.reqDispatch:
+		case reqOp := <-p.reqDispatch: // 요ㅊ청을 받아옴
 			req := reqOp.req
 			req.Sent = time.Now()
 
 			requestTracker.Track(p.id, p.version, req.code, req.want, req.id)
-			err := p2p.Send(p.rw, req.code, req.data)
+			// 트래커에 해당 요청을 추가하여 처리될때까지 기다릴 수 있게함
+			err := p2p.Send(p.rw, req.code, req.data) // 요청을 보냄
 			reqOp.fail <- err
 
 			if err == nil {
@@ -220,7 +223,7 @@ func (p *Peer) dispatcher() {
 			res.Req = pending[res.id]
 
 			// Independent if the request exists or not, track this packet
-			requestTracker.Fulfil(p.id, p.version, res.code, res.id)
+			requestTracker.Fulfil(p.id, p.version, res.code, res.id) // 보류중인 요청을 진행
 
 			switch {
 			case res.Req == nil:

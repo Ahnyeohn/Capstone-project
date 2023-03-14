@@ -37,7 +37,7 @@ type testproc struct {
 
 func init() {
 	reexec.Register(registeredName, func() {
-		if err := app.Run(os.Args); err != nil {
+		if err := (os.Args); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}

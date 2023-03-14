@@ -74,7 +74,7 @@ func (msg Msg) Time() time.Time {
 }
 
 type MsgReader interface {
-	ReadMsg() (Msg, error)
+	ReadMsg() (Msg, error) // 이것도 마찬가지
 }
 
 type MsgWriter interface {
@@ -82,7 +82,8 @@ type MsgWriter interface {
 	// Payload has been consumed by the other end.
 	//
 	// Note that messages can be sent only once because their
-	// payload reader is drained.
+	// payload reader is drained
+	// 이게 우리가 찾아야 할 함수다.
 	WriteMsg(Msg) error
 }
 
@@ -97,8 +98,8 @@ type MsgReadWriter interface {
 // Send writes an RLP-encoded message with the given code.
 // data should encode as an RLP list.
 func Send(w MsgWriter, msgcode uint64, data interface{}) error {
-	fmt.Println("Func: Send()")
-	size, r, err := rlp.EncodeToReader(data)
+	fmt.Println("Func: p2p.Send()")
+	size, r, err := rlp.EncodeToReader(data) // rlp 인코딩 적용
 	if err != nil {
 		return err
 	}
@@ -283,6 +284,7 @@ func newMsgEventer(rw MsgReadWriter, feed *event.Feed, peerID enode.ID, proto, r
 // ReadMsg reads a message from the underlying MsgReadWriter and emits a
 // "message received" event
 func (ev *msgEventer) ReadMsg() (Msg, error) {
+	fmt.Println("Func: ReadMsg2()")
 	msg, err := ev.MsgReadWriter.ReadMsg()
 	if err != nil {
 		return msg, err

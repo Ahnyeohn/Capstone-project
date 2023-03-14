@@ -371,6 +371,7 @@ func (d *Downloader) synchronise(id string, hash common.Hash, td, ttd *big.Int, 
 	// cancelled, the syncer needs to know if we reached the startup point (and
 	// inited the cancel channel) or not yet. Make sure that we'll signal even in
 	// case of a failure.
+	fmt.Printf("Func: synchronise and mode: %s", mode.String())
 	if beaconPing != nil {
 		defer func() {
 			select {
@@ -451,6 +452,7 @@ func (d *Downloader) getMode() SyncMode {
 // syncWithPeer starts a block synchronization based on the hash chain from the
 // specified peer and head hash.
 func (d *Downloader) syncWithPeer(p *peerConnection, hash common.Hash, td, ttd *big.Int, beaconMode bool) (err error) {
+
 	d.mux.Post(StartEvent{})
 	defer func() {
 		// reset on error

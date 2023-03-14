@@ -84,6 +84,7 @@ type Backend interface {
 	// Handle is a callback to be invoked when a data packet is received from
 	// the remote peer. Only packets not consumed by the protocol handler will
 	// be forwarded to the backend.
+	// 데이터 패킷이 도착하면 호출되는 콜백함수
 	Handle(peer *Peer, packet Packet) error
 }
 
@@ -94,6 +95,7 @@ type TxPool interface {
 }
 
 // MakeProtocols constructs the P2P protocol definitions for `eth`.
+//초반에만 실행되는 듯 하다. 내 생각에는 각각의 피어들이 makeProtocols
 func MakeProtocols(backend Backend, network uint64, dnsdisc enode.Iterator) []p2p.Protocol {
 
 	fmt.Println("Func: MakeProtocols")
@@ -110,7 +112,7 @@ func MakeProtocols(backend Backend, network uint64, dnsdisc enode.Iterator) []p2
 				defer peer.Close()
 
 				return backend.RunPeer(peer, func(peer *Peer) error {
-					return Handle(backend, peer)
+					return Handle(backend, peer) // 핸들러반환: return Handle(peer, BlockPacket)
 				})
 			},
 			NodeInfo: func() interface{} {
@@ -152,11 +154,11 @@ func nodeInfo(chain *core.BlockChain, network uint64) *NodeInfo {
 // the protocol handshake. This method will keep processing messages until the
 // connection is torn down.
 func Handle(backend Backend, peer *Peer) error {
-	fmt.Println("Func: Handle()")
+	fmt.Println("Func: Handle() => 'eth' connection")
 	for {
 		if err := handleMessage(backend, peer); err != nil {
 			peer.Log().Debug("Message handling failed in `eth`", "err", err)
-			return err
+			return err // 이 err은 오류가 없다면 핸들러를 반환한다.
 		}
 	}
 }
@@ -216,9 +218,10 @@ var eth68 = map[uint64]msgHandler{
 
 // handleMessage is invoked whenever an inbound message is received from a remote
 // peer. The remote connection is torn down upon returning any error.
+//메세지를 기본함수 ReadMsg()를 통해 읽어와서 그 메세지 코드에 맞는 핸들러를 반환한다.
 func handleMessage(backend Backend, peer *Peer) error {
 	// Read the next message from the remote peer, and ensure it's fully consumed
-	fmt.Printf("Func:handleMessage\n")
+	fmt.Printf("Func: handleMessage\n")
 	msg, err := peer.rw.ReadMsg()
 	if err != nil {
 		return err
@@ -250,6 +253,22 @@ func handleMessage(backend Backend, peer *Peer) error {
 	}
 	if handler := handlers[msg.Code]; handler != nil {
 		return handler(backend, msg, peer)
-	}
+	} // 인터페이스에 구현된 핸들러를 호출하는데 아래 여기서 호출하는건가? 이부분 주석으로 확인하든지 해야할듯?
+	/* var eth66 = map[uint64]msgHandler{
+		NewBlockHashesMsg:             handleNewBlockhashes,
+		NewBlockMsg:                   handleNewBlock,
+		TransactionsMsg:               handleTransactions,
+		NewPooledTransactionHashesMsg: handleNewPooledTransactionHashes66,
+		GetBlockHeadersMsg:            handleGetBlockHeaders66,
+		BlockHeadersMsg:               handleBlockHeaders66,
+		GetBlockBodiesMsg:             handleGetBlockBodies66,
+		BlockBodiesMsg:                handleBlockBodies66,
+		GetNodeDataMsg:                handleGetNodeData66,
+		NodeDataMsg:                   handleNodeData66,
+		GetReceiptsMsg:                handleGetReceipts66,
+		ReceiptsMsg:                   handleReceipts66,
+		GetPooledTransactionsMsg:      handleGetPooledTransactions66,
+		PooledTransactionsMsg:         handlePooledTransactions66,
+	}*/
 	return fmt.Errorf("%w: %v", errInvalidMsgCode, msg.Code)
 }

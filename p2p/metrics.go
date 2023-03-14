@@ -22,6 +22,7 @@ import (
 	"net"
 
 	"github.com/ethereum/go-ethereum/metrics"
+	quic "github.com/quic-go/quic-go"
 )
 
 const (
@@ -46,13 +47,16 @@ var (
 // meteredConn is a wrapper around a net.Conn that meters both the
 // inbound and outbound network traffic.
 type meteredConn struct {
-	net.Conn
+	//fix: net.Conn
+	quic.Stream
 }
 
 // newMeteredConn creates a new metered connection, bumps the ingress or egress
 // connection meter and also increases the metered peer count. If the metrics
 // system is disabled, function returns the original connection.
-func newMeteredConn(conn net.Conn, ingress bool, addr *net.TCPAddr) net.Conn {
+
+// fix: func newMeteredConn(conn net.Conn, ingress bool, addr *net.TCPAddr) net.Conn {
+func newMeteredConn(conn quic.Stream, ingress bool, addr *net.UDPAddr) quic.Stream {
 	// Short circuit if metrics are disabled
 	if !metrics.Enabled {
 		return conn
@@ -64,13 +68,18 @@ func newMeteredConn(conn net.Conn, ingress bool, addr *net.TCPAddr) net.Conn {
 		egressConnectMeter.Mark(1)
 	}
 	activePeerGauge.Inc(1)
-	return &meteredConn{Conn: conn}
+	//fix: return &meteredConn{Conn: conn}
+	return &meteredConn{Stream: conn}
 }
 
 // Read delegates a network read to the underlying connection, bumping the common
 // and the peer ingress traffic meters along the way.
+
+// fix: these 3 function have to be fixed because instead of net.conn we used quic.Stream
+
 func (c *meteredConn) Read(b []byte) (n int, err error) {
-	n, err = c.Conn.Read(b)
+	// fix: n, err = c.Conn.Read(b)
+	n, err = c.Stream.Read(b)
 	ingressTrafficMeter.Mark(int64(n))
 	return n, err
 }
@@ -78,7 +87,7 @@ func (c *meteredConn) Read(b []byte) (n int, err error) {
 // Write delegates a network write to the underlying connection, bumping the common
 // and the peer egress traffic meters along the way.
 func (c *meteredConn) Write(b []byte) (n int, err error) {
-	n, err = c.Conn.Write(b)
+	n, err = c.Stream.Write(b)
 	egressTrafficMeter.Mark(int64(n))
 	return n, err
 }
@@ -86,7 +95,7 @@ func (c *meteredConn) Write(b []byte) (n int, err error) {
 // Close delegates a close operation to the underlying connection, unregisters
 // the peer from the traffic registries and emits close event.
 func (c *meteredConn) Close() error {
-	err := c.Conn.Close()
+	err := c.Stream.Close()
 	if err == nil {
 		activePeerGauge.Dec(1)
 	}
