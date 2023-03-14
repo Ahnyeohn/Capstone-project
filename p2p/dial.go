@@ -75,15 +75,14 @@ type udpDialer struct {
 // func (t tcpDialer) Dial(ctx context.Context, dest *enode.Node) (net.Conn, error) {
 // 	fmt.Println("Func: tcp Dial()")
 
-// 	//return quic.DialAddr(nodeAddr(dest).String(), tlsConf, nil) //TCP
-// 	return t.d.DialContext(ctx, "tcp", nodeAddr(dest).String()) //TCP
-// }
-
+//		//return quic.DialAddr(nodeAddr(dest).String(), tlsConf, nil) //TCP
+//		return t.d.DialContext(ctx, "tcp", nodeAddr(dest).String()) //TCP
+//	}
 func (t tcpDialer) Dial(ctx context.Context, dest *enode.Node) (quic.Connection, error) {
 	fmt.Println("Func: tcp Dial()")
-	fmt.Printf("dest: %s\n%s\n%s\n%s\n", dest.URLv4(), dest.IP().To4().String(), dest.IP().String(), nodeAddr(dest).String())
+	fmt.Printf("dest: %s\n%s\n%s\n", dest.URLv4(), dest.IP().String(), nodeAddr(dest).String())
 
-	myaddr := fmt.Sprintf("%s:%d", t.n.Node().IP().String(), t.n.Node().UDP())
+	myaddr := fmt.Sprintf("%s : %d", t.n.Node().IP().String(), t.n.Node().UDP())
 	fmt.Printf("addr: %s\n", myaddr)
 
 	// udpAddr, err := net.ResolveUDPAddr("udp", nodeAddr(dest).String())
@@ -121,8 +120,9 @@ func (t tcpDialer) Dial(ctx context.Context, dest *enode.Node) (quic.Connection,
 
 func nodeAddr(n *enode.Node) net.Addr {
 	//fix: return &net.TCPAddr{IP: n.IP(), Port: n.TCP()} //TCP
-	return &net.UDPAddr{IP: n.IP(), Port: 30301} //TCP
-}
+	return &net.UDPAddr{IP: n.IP(), Port: n.TCP()} //TCP
+} // first error why? port number problem
+// 아마도 udp port는 discovery를 위한 포트고 tcp port는 transport를 위한 포트인듯 하다.
 
 // checkDial errors:
 var (
@@ -300,6 +300,7 @@ loop:
 			if err := d.checkDial(node); err != nil {
 				d.log.Trace("Discarding dial candidate", "id", node.ID(), "ip", node.IP(), "reason", err)
 			} else {
+				fmt.Printf("dest port number: %d\n", node.UDP())
 				d.startDial(newDialTask(node, dynDialedConn))
 			} // 우리가 봐야할 케이스 1
 

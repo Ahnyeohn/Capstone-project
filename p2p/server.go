@@ -933,18 +933,7 @@ func (srv *Server) listenLoop() {
 			//fix: fd, err = srv.listener.Accept()
 			ctx := context.Background()
 			conn, err = srv.listener.Accept(ctx)
-			if err != nil {
-				fmt.Println("accept err")
-				panic(err)
-			}
 
-			stream, err = conn.AcceptStream(ctx)
-			if err != nil {
-				fmt.Println("accept stream err")
-				panic(err)
-			}
-
-			// 문제1: 이 context부분을 그대로 써도 문제가 없는가?
 			if netutil.IsTemporaryError(err) {
 				if time.Since(lastLog) > 1*time.Second {
 					srv.log.Debug("Temporary read error", "err", err)
@@ -957,6 +946,12 @@ func (srv *Server) listenLoop() {
 				slots <- struct{}{}
 				return
 			}
+
+			stream, err = conn.AcceptStream(ctx)
+			if err != nil {
+				return
+			}
+
 			break
 		}
 
@@ -1188,7 +1183,7 @@ func (srv *Server) NodeInfo() *NodeInfo {
 		Protocols:  make(map[string]interface{}),
 	}
 	info.Ports.Discovery = node.UDP()
-	info.Ports.Listener = node.TCP()
+	info.Ports.Listener = node.TCP() // 원래 Discovey에는 udp를 사용하고 전송에는 tcp를 사용한듯?
 	info.ENR = node.String()
 
 	// Gather all the running protocol infos (only once per protocol type)
