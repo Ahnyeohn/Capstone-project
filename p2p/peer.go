@@ -192,12 +192,13 @@ func (p *Peer) RunningCap(protocol string, versions []uint) bool {
 
 // RemoteAddr returns the remote address of the network connection.
 func (p *Peer) RemoteAddr() net.Addr {
-	return p.rw.fd.RemoteAddr()
+	//fix: return p.rw.fd.RemoteAddr()
+	return p.rw.con.RemoteAddr()
 }
 
 // LocalAddr returns the local address of the network connection.
 func (p *Peer) LocalAddr() net.Addr {
-	return p.rw.fd.LocalAddr()
+	return p.rw.con.LocalAddr()
 }
 
 // Disconnect terminates the peer connection with the given reason.
@@ -224,7 +225,7 @@ func (p *Peer) Inbound() bool {
 	return p.rw.is(inboundConn)
 }
 
-//서버에서 지정한 프로토콜을 가지고 피어를 생성 및 반환
+// 서버에서 지정한 프로토콜을 가지고 피어를 생성 및 반환
 func newPeer(log log.Logger, conn *conn, protocols []Protocol) *Peer {
 
 	fmt.Println("Func: p2p/newPeer()")
@@ -245,7 +246,7 @@ func (p *Peer) Log() log.Logger {
 	return p.log
 }
 
-//피어간의 메인루프를 작동, 에러가 발생할때까지 대기
+// 피어간의 메인루프를 작동, 에러가 발생할때까지 대기
 func (p *Peer) run() (remoteRequested bool, err error) {
 	fmt.Printf("Func: p2p/run() ")
 	var (
@@ -411,7 +412,7 @@ outer:
 	return result
 }
 
-//프로토콜(protoRW)과 주소정보를 바탕으로 rw(MsgReadWriter)를 생성하고, rw를 proto.Run() 실행
+// 프로토콜(protoRW)과 주소정보를 바탕으로 rw(MsgReadWriter)를 생성하고, rw를 proto.Run() 실행
 func (p *Peer) startProtocols(writeStart <-chan struct{}, writeErr chan<- error) {
 	fmt.Println("Func: startProtocols()")
 	p.wg.Add(len(p.running))

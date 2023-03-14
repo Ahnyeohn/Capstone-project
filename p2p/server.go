@@ -711,20 +711,32 @@ func (srv *Server) setupListening() error {
 	// Launch the listener.
 	// fix: listener, err := srv.listenFunc("tcp", srv.ListenAddr) //tcp
 	config := quic.Config{}
+	fmt.Printf("listen addr: %s\n", srv.ListenAddr)
 	listener, err := quic.ListenAddr(srv.ListenAddr, GenerateTLSConfig(), &config)
 	if err != nil {
+		fmt.Println("listen error!")
 		return err
 	}
 	srv.listener = listener
 	srv.ListenAddr = listener.Addr().String()
 
 	// Update the local node record and map the TCP listening port if NAT is configured.
-	if tcp, ok := listener.Addr().(*net.TCPAddr); ok { //tcp
-		srv.localnode.Set(enr.TCP(tcp.Port))
-		if !tcp.IP.IsLoopback() && srv.NAT != nil {
+	// if tcp, ok := listener.Addr().(*net.TCPAddr); ok { //tcp
+	// 	srv.localnode.Set(enr.TCP(tcp.Port))
+	// 	if !tcp.IP.IsLoopback() && srv.NAT != nil {
+	// 		srv.loopWG.Add(1)
+	// 		go func() {
+	// 			nat.Map(srv.NAT, srv.quit, "tcp", tcp.Port, tcp.Port, "ethereum p2p")
+	// 			srv.loopWG.Done()
+	// 		}()
+	// 	}
+	// }
+	if udp, ok := listener.Addr().(*net.UDPAddr); ok { //tcp
+		srv.localnode.Set(enr.UDP(udp.Port))
+		if !udp.IP.IsLoopback() && srv.NAT != nil {
 			srv.loopWG.Add(1)
 			go func() {
-				nat.Map(srv.NAT, srv.quit, "tcp", tcp.Port, tcp.Port, "ethereum p2p")
+				nat.Map(srv.NAT, srv.quit, "udp", udp.Port, udp.Port, "ethereum p2p")
 				srv.loopWG.Done()
 			}()
 		}

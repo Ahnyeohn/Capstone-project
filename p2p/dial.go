@@ -86,34 +86,34 @@ func (t tcpDialer) Dial(ctx context.Context, dest *enode.Node) (quic.Connection,
 	myaddr := fmt.Sprintf("%s:%d", t.n.Node().IP().String(), t.n.Node().UDP())
 	fmt.Printf("addr: %s\n", myaddr)
 
-	udpAddr, err := net.ResolveUDPAddr("udp", myaddr)
-	if err != nil {
-		panic(err)
-	}
+	// udpAddr, err := net.ResolveUDPAddr("udp", nodeAddr(dest).String())
+	// if err != nil {
+	// 	panic(err)
+	// }
 
-	udpConn, err := net.ListenUDP("udp", &net.UDPAddr{IP: t.n.Node().IP(), Port: 0})
-	if err != nil {
-		fmt.Println("err1")
-		panic(err)
-	}
+	// udpConn, err := net.ListenUDP("udp", &net.UDPAddr{IP: t.n.Node().IP(), Port: 0})
+	// if err != nil {
+	// 	fmt.Println("err1")
+	// 	panic(err)
+	// }
 
 	tlsConf := &tls.Config{
 		InsecureSkipVerify: true,
 		NextProtos:         []string{"socket-programming"},
 	}
 
-	conn, err := quic.Dial(udpConn, udpAddr, dest.IP().String(), tlsConf, nil)
-	if err != nil {
-		fmt.Println("err2")
-		panic(err)
-	} // udpaddr로 했더니 port가 없다면서 에러 발생
+	// conn, err := quic.Dial(udpConn, udpAddr, dest.IP().String(), tlsConf, nil)
+	// if err != nil {
+	// 	fmt.Println("err2")
+	// 	panic(err)
+	// } // udpaddr로 했더니 port가 없다면서 에러 발생
 	//여기가 문제인거 같다.
 
-	// conn, err := quic.DialAddr(nodeAddr(dest).String(), tlsConf, nil)
-	// if err != nil {
-	// 	fmt.Println("err2!")
-	// 	panic(err)
-	// }
+	conn, err := quic.DialAddr(nodeAddr(dest).String(), tlsConf, nil)
+	if err != nil {
+		fmt.Println("err2!")
+		panic(err)
+	}
 
 	return conn, err
 
@@ -121,7 +121,7 @@ func (t tcpDialer) Dial(ctx context.Context, dest *enode.Node) (quic.Connection,
 
 func nodeAddr(n *enode.Node) net.Addr {
 	//fix: return &net.TCPAddr{IP: n.IP(), Port: n.TCP()} //TCP
-	return &net.UDPAddr{IP: n.IP(), Port: n.UDP()} //TCP
+	return &net.UDPAddr{IP: n.IP(), Port: 30301} //TCP
 }
 
 // checkDial errors:
