@@ -19,7 +19,6 @@ package p2p
 import (
 	"context"
 	crand "crypto/rand"
-	"crypto/tls"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -32,6 +31,10 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/ethereum/go-ethereum/p2p/netutil"
+
+	mp2bs "mp2bs/session"
+	util "mp2bs/util"
+
 	quic "github.com/quic-go/quic-go"
 )
 
@@ -53,7 +56,8 @@ const (
 // NodeDialer is used to connect to nodes in the network, typically by using
 // an underlying net.Dialer but also using net.Pipe in tests.
 type NodeDialer interface {
-	Dial(context.Context, *enode.Node) (quic.Connection, error)
+	Dial(context.Context, *enode.Node) (quic.Connection, quic.Stream, error)
+	//Dial(context.Context, *enode.Node) (quic.Connection, error)
 	//Dial(context.Context, *enode.Node) (net.Conn, error)
 }
 
@@ -78,49 +82,19 @@ type udpDialer struct {
 //		//return quic.DialAddr(nodeAddr(dest).String(), tlsConf, nil) //TCP
 //		return t.d.DialContext(ctx, "tcp", nodeAddr(dest).String()) //TCP
 //	}
-func (t tcpDialer) Dial(ctx context.Context, dest *enode.Node) (quic.Connection, error) {
-	fmt.Println("Func: tcp Dial()")
+func (t tcpDialer) Dial(ctx context.Context, dest *enode.Node) (quic.Connection, quic.Stream, error) {
 	fmt.Printf("dest: %s\n%s\n%s\n", dest.URLv4(), dest.IP().String(), nodeAddr(dest).String())
+	fmt.Printf("addr: %s\n", fmt.Sprintf("%s : %d", t.n.Node().IP().String(), t.n.Node().UDP()))
 
-	myaddr := fmt.Sprintf("%s : %d", t.n.Node().IP().String(), t.n.Node().UDP())
-	fmt.Printf("addr: %s\n", myaddr)
+	util.Log("this is mp2bs function")
+	conn, stream, err := mp2bs.Connect(nodeAddr(dest).String(), ctx)
 
-	// udpAddr, err := net.ResolveUDPAddr("udp", nodeAddr(dest).String())
-	// if err != nil {
-	// 	panic(err)
-	// }
-
-	// udpConn, err := net.ListenUDP("udp", &net.UDPAddr{IP: t.n.Node().IP(), Port: 0})
-	// if err != nil {
-	// 	fmt.Println("err1")
-	// 	panic(err)
-	// }
-
-	tlsConf := &tls.Config{
-		InsecureSkipVerify: true,
-		NextProtos:         []string{"socket-programming"},
-	}
-
-	// conn, err := quic.Dial(udpConn, udpAddr, dest.IP().String(), tlsConf, nil)
-	// if err != nil {
-	// 	fmt.Println("err2")
-	// 	panic(err)
-	// } // udpaddr로 했더니 port가 없다면서 에러 발생
-	//여기가 문제인거 같다.
-
-	conn, err := quic.DialAddr(nodeAddr(dest).String(), tlsConf, nil)
-	if err != nil {
-		fmt.Println("err2!")
-		panic(err)
-	}
-
-	return conn, err
-
+	return conn, stream, err
 }
 
 func nodeAddr(n *enode.Node) net.Addr {
 	//fix: return &net.TCPAddr{IP: n.IP(), Port: n.TCP()} //TCP
-	return &net.UDPAddr{IP: n.IP(), Port: n.TCP()} //TCP
+	return &net.UDPAddr{IP: n.IP(), Port: n.UDP()} //TCP
 } // first error why? port number problem
 // 아마도 udp port는 discovery를 위한 포트고 tcp port는 transport를 위한 포트인듯 하다.
 
@@ -445,7 +419,7 @@ func (d *dialScheduler) checkDial(n *enode.Node) error {
 	if n.ID() == d.self {
 		return errSelf
 	}
-	if n.IP() != nil && n.TCP() == 0 { //TCP
+	if n.IP() != nil && (n.TCP() == 0 && n.UDP() == 0) { //TCP
 		// This check can trigger if a non-TCP node is found
 		// by discovery. If there is no IP, the node is a static
 		// node and the actual endpoint will be resolved later in dialTask.
@@ -539,6 +513,7 @@ type dialError struct {
 
 func (t *dialTask) run(d *dialScheduler) {
 	if t.needResolve() && !t.resolve(d) {
+		fmt.Println("fuck run")
 		return
 	}
 
@@ -592,21 +567,22 @@ func (t *dialTask) resolve(d *dialScheduler) bool {
 
 // dial performs the actual connection attempt.
 func (t *dialTask) dial(d *dialScheduler, dest *enode.Node) error {
-	fd, err := d.dialer.Dial(d.ctx, t.dest) //오피셜: 아마 내부에 표준 dial 함수를 사용할듯?
+
+	fd, stream, err := d.dialer.Dial(d.ctx, t.dest) //오피셜: 아마 내부에 표준 dial 함수를 사용할듯?
 	if err != nil {
+		fmt.Println("dial(connect) error")
 		d.log.Trace("Dial error", "id", t.dest.ID(), "addr", nodeAddr(t.dest), "conn", t.flags, "err", cleanupDialErr(err))
 		return &dialError{err}
 	}
-	// fix: remove this
-	stream, err := fd.OpenStreamSync(d.ctx)
-	if err != nil {
-		panic(err)
-	}
-	//
+	// fix: remove indentation
+	// stream, err := fd.OpenStreamSync(d.ctx)
+	// if err != nil {
+	// 	panic(err)
+	// }
 
 	//mfd := newMeteredConn(fd, stream, false, &net.UDPAddr{IP: dest.IP(), Port: dest.TCP()}) //TCP
 
-	// fix:
+	// fix: mfd is used in original code
 	return d.setupFunc(fd, stream, t.flags, dest) //  == setupConn
 	//일단 mfd를 안쓰겠다.
 }

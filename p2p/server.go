@@ -36,6 +36,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	mp2bs "mp2bs/session"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/mclock"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -932,7 +934,8 @@ func (srv *Server) listenLoop() {
 		for {
 			//fix: fd, err = srv.listener.Accept()
 			ctx := context.Background()
-			conn, err = srv.listener.Accept(ctx)
+			//conn, err = srv.listener.Accept(ctx)
+			conn, err = mp2bs.Accept(srv.listener, ctx)
 
 			if netutil.IsTemporaryError(err) {
 				if time.Since(lastLog) > 1*time.Second {

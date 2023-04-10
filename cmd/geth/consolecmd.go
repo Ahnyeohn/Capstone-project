@@ -69,7 +69,7 @@ JavaScript API. See https://geth.ethereum.org/docs/interface/javascript-console`
 // same time.
 func localConsole(ctx *cli.Context) error {
 	// Create and start the node based on the CLI flags
-	fmt.Println("haha this is quic fix ver")
+	fmt.Println("haha this is mp2bs fix ver")
 	//fmt.Println("Func: localConsole()")
 	prepare(ctx)
 	stack, backend := makeFullNode(ctx)
