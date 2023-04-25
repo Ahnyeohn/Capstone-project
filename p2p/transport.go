@@ -51,7 +51,8 @@ type rlpxTransport struct {
 	conn     *rlpx.Conn
 }
 
-//fix: func newRLPX(conn net.Conn, dialDest *ecdsa.PublicKey) transport {
+// fix: func newRLPX(conn net.Conn, dialDest *ecdsa.PublicKey) transport {
+// devp2p quic
 func newRLPX(conn quic.Connection, stream quic.Stream, dialDest *ecdsa.PublicKey) transport {
 	fmt.Println("Func: newRLPX()")
 	return &rlpxTransport{conn: rlpx.NewConn(conn, stream, dialDest)} // 여기에 인자가 있다는건 어디서 받아온걸 넣겠다는거 아닌가? 의심
@@ -81,7 +82,7 @@ func (t *rlpxTransport) ReadMsg() (Msg, error) {
 	return msg, err
 }
 
-//적게나마 호출이 되는듯 그리고 내부적으로 rlpx.write함수호출
+// 적게나마 호출이 되는듯 그리고 내부적으로 rlpx.write함수호출
 func (t *rlpxTransport) WriteMsg(msg Msg) error {
 	fmt.Println("Func: rt/WriteMsg()")
 	t.wmu.Lock()

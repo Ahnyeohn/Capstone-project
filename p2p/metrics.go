@@ -46,6 +46,7 @@ var (
 
 // meteredConn is a wrapper around a net.Conn that meters both the
 // inbound and outbound network traffic.
+// devp2p quic
 type meteredConn struct {
 	//fix: net.Conn
 	quic.Stream
@@ -56,6 +57,7 @@ type meteredConn struct {
 // system is disabled, function returns the original connection.
 
 // fix: func newMeteredConn(conn net.Conn, ingress bool, addr *net.TCPAddr) net.Conn {
+// devp2p quic
 func newMeteredConn(conn quic.Stream, ingress bool, addr *net.UDPAddr) quic.Stream {
 	// Short circuit if metrics are disabled
 	if !metrics.Enabled {

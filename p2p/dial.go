@@ -55,6 +55,7 @@ const (
 
 // NodeDialer is used to connect to nodes in the network, typically by using
 // an underlying net.Dialer but also using net.Pipe in tests.
+// devp2p quic
 type NodeDialer interface {
 	Dial(context.Context, *enode.Node) (quic.Connection, quic.Stream, error)
 	//Dial(context.Context, *enode.Node) (quic.Connection, error)
@@ -76,17 +77,13 @@ type udpDialer struct {
 	n *enode.LocalNode
 } // 얘가 노드다이얼러의 다이얼을 구현하는 구조체이구나!!!
 
-// func (t tcpDialer) Dial(ctx context.Context, dest *enode.Node) (net.Conn, error) {
-// 	fmt.Println("Func: tcp Dial()")
-
-//		//return quic.DialAddr(nodeAddr(dest).String(), tlsConf, nil) //TCP
-//		return t.d.DialContext(ctx, "tcp", nodeAddr(dest).String()) //TCP
-//	}
+// devp2p quic
 func (t tcpDialer) Dial(ctx context.Context, dest *enode.Node) (quic.Connection, quic.Stream, error) {
 	fmt.Printf("dest: %s\n%s\n%s\n", dest.URLv4(), dest.IP().String(), nodeAddr(dest).String())
 	fmt.Printf("addr: %s\n", fmt.Sprintf("%s : %d", t.n.Node().IP().String(), t.n.Node().UDP()))
 
 	util.Log("this is mp2bs function")
+	// devp2p quic
 	conn, stream, err := mp2bs.Connect(nodeAddr(dest).String(), ctx)
 
 	return conn, stream, err
@@ -154,6 +151,7 @@ type dialScheduler struct {
 }
 
 // fix: type dialSetupFunc func(net.Conn, connFlag, *enode.Node) error
+// devp2p quic
 type dialSetupFunc func(quic.Connection, quic.Stream, connFlag, *enode.Node) error
 
 type dialConfig struct {

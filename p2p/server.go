@@ -180,6 +180,7 @@ type Server struct {
 	// Hooks for testing. These are useful because we can inhibit
 	// the whole protocol stack.
 	//fix: newTransport func(net.Conn, *ecdsa.PublicKey) transport
+	// devp2p quic
 	newTransport func(quic.Connection, quic.Stream, *ecdsa.PublicKey) transport
 	newPeerHook  func(*Peer)
 	listenFunc   func(network, addr string) (net.Listener, error)
@@ -188,6 +189,7 @@ type Server struct {
 	running bool
 
 	//listener     net.Listener
+	// devp2p quic
 	listener     quic.Listener
 	ourHandshake *protoHandshake
 	loopWG       sync.WaitGroup // loop, listenLoop
@@ -234,9 +236,11 @@ const (
 
 // conn wraps a network connection with information gathered
 // during the two handshakes.
+
 type conn struct {
 	//fix: remove conn quic.Connection
-	fd     net.Conn
+	fd net.Conn
+	// devp2p quic
 	con    quic.Connection
 	stream quic.Stream
 	transport
@@ -712,8 +716,10 @@ func GenerateTLSConfig() *tls.Config {
 func (srv *Server) setupListening() error {
 	// Launch the listener.
 	// fix: listener, err := srv.listenFunc("tcp", srv.ListenAddr) //tcp
+	// devp2p quic
 	config := quic.Config{}
 	fmt.Printf("listen addr: %s\n", srv.ListenAddr)
+	// devp2p quic
 	listener, err := quic.ListenAddr(srv.ListenAddr, GenerateTLSConfig(), &config)
 	if err != nil {
 		fmt.Println("listen error!")
@@ -926,6 +932,7 @@ func (srv *Server) listenLoop() {
 
 		var (
 			//fix: fd      net.Conn
+			// devp2p quic
 			conn    quic.Connection
 			err     error
 			stream  quic.Stream
@@ -1012,6 +1019,7 @@ func (srv *Server) checkInboundConn(remoteIP net.IP) error {
 // as a peer. It returns when the connection has been added as a peer
 // or the handshakes have failed.
 // fix: func (srv *Server) SetupConn(fd net.Conn, flags connFlag, dialDest *enode.Node) error {
+// devp2p quic
 func (srv *Server) SetupConn(con quic.Connection, stream quic.Stream, flags connFlag, dialDest *enode.Node) error {
 	fmt.Println("Func: SetupConn()")
 	c := &conn{con: con, stream: stream, flags: flags, cont: make(chan error)}
@@ -1028,7 +1036,7 @@ func (srv *Server) SetupConn(con quic.Connection, stream quic.Stream, flags conn
 		c.close(err)
 	}
 	return err
-}
+} //
 
 func (srv *Server) setupConn(c *conn, flags connFlag, dialDest *enode.Node) error {
 	// Prevent leftover pending conns from entering the handshake.
@@ -1089,6 +1097,7 @@ func (srv *Server) setupConn(c *conn, flags connFlag, dialDest *enode.Node) erro
 }
 
 // fix: func nodeFromConn(pubkey *ecdsa.PublicKey, conn net.Conn) *enode.Node { //tcp
+// devp2p quic
 func nodeFromConn(pubkey *ecdsa.PublicKey, conn quic.Connection) *enode.Node { //tcp
 	var ip net.IP
 	var port int

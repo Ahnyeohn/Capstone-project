@@ -50,7 +50,7 @@ import (
 // may happen concurrently after the handshake.
 type Conn struct {
 	dialDest *ecdsa.PublicKey
-
+	// devp2p quic
 	conn    quic.Connection
 	fd      net.Conn
 	stream  quic.Stream
@@ -95,7 +95,8 @@ func newHashMAC(cipher cipher.Block, h hash.Hash) hashMAC {
 
 // NewConn wraps the given network connection. If dialDest is non-nil, the connection
 // behaves as the initiator during the handshake.
-//fix: func NewConn(conn net.Conn, dialDest *ecdsa.PublicKey) *Conn {
+// fix: func NewConn(conn net.Conn, dialDest *ecdsa.PublicKey) *Conn {
+// devp2p quic
 func NewConn(conn quic.Connection, stream quic.Stream, dialDest *ecdsa.PublicKey) *Conn {
 	fmt.Println("Func: NewConn()")
 	return &Conn{
@@ -243,7 +244,8 @@ func (c *Conn) Write(code uint64, data []byte) (uint32, error) { //얘도 호출
 	return wireSize, err
 }
 
-//fix: func (h *sessionState) writeFrame(conn io.Writer, code uint64, data []byte) error {
+// fix: func (h *sessionState) writeFrame(conn io.Writer, code uint64, data []byte) error {
+// devp2p quic
 func (h *sessionState) writeFrame(stream quic.Stream, code uint64, data []byte) error {
 	h.wbuf.reset()
 
