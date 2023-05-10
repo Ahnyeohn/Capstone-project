@@ -185,10 +185,10 @@ func (p *Peer) dispatchResponse(res *Response, metadata func() interface{}) erro
 // dispatcher is a loop that accepts requests from higher layer packages, pushes
 // it to the network and tracks and dispatches the responses back to the original
 // requester.
-//(상위 계층의) 요청을 받고 대기, 전송 / 대기중인 요청 진행 및 처리 // 이부분은 잘 모르겠다. 내용이 안들어온다.
+// (상위 계층의) 요청을 받고 대기, 전송 / 대기중인 요청 진행 및 처리 // 이부분은 잘 모르겠다. 내용이 안들어온다.
 func (p *Peer) dispatcher() {
 
-	fmt.Println("Func: dispatcher()")
+	//fmt.Println("Func: dispatcher()")
 	pending := make(map[uint64]*Request)
 
 	for {

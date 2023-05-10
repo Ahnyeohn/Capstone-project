@@ -19,6 +19,7 @@ package p2p
 import (
 	"context"
 	crand "crypto/rand"
+	"crypto/tls"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -31,9 +32,6 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/ethereum/go-ethereum/p2p/netutil"
-
-	mp2bs "mp2bs/session"
-	util "mp2bs/util"
 
 	quic "github.com/quic-go/quic-go"
 )
@@ -82,9 +80,22 @@ func (t tcpDialer) Dial(ctx context.Context, dest *enode.Node) (quic.Connection,
 	fmt.Printf("dest: %s\n%s\n%s\n", dest.URLv4(), dest.IP().String(), nodeAddr(dest).String())
 	fmt.Printf("addr: %s\n", fmt.Sprintf("%s : %d", t.n.Node().IP().String(), t.n.Node().UDP()))
 
-	util.Log("this is mp2bs function")
 	// devp2p quic
-	conn, stream, err := mp2bs.Connect(nodeAddr(dest).String(), ctx)
+	tlsConf := &tls.Config{
+		InsecureSkipVerify: true,
+		NextProtos:         []string{"socket-programming"},
+	}
+
+	conn, err := quic.DialAddr(nodeAddr(dest).String(), tlsConf, nil)
+	if err != nil {
+		fmt.Println("dial error")
+	}
+
+	stream, err := conn.OpenStreamSync(ctx)
+	if err != nil {
+		fmt.Println("stream error")
+		panic(err)
+	}
 
 	return conn, stream, err
 }
@@ -186,7 +197,7 @@ func (cfg dialConfig) withDefaults() dialConfig {
 }
 
 func newDialScheduler(config dialConfig, it enode.Iterator, setupFunc dialSetupFunc) *dialScheduler {
-	fmt.Println("Func: newDialScheduler()")
+	//fmt.Println("Func: newDialScheduler()")
 	d := &dialScheduler{
 		dialConfig:  config.withDefaults(),
 		setupFunc:   setupFunc, //
@@ -479,7 +490,7 @@ func (d *dialScheduler) removeFromStaticPool(idx int) {
 
 // startDial runs the given dial task in a separate goroutine.
 func (d *dialScheduler) startDial(task *dialTask) {
-	fmt.Println("Func: startDial()")
+	//fmt.Println("Func: startDial()")
 	d.log.Trace("Starting p2p dial", "id", task.dest.ID(), "ip", task.dest.IP(), "flag", task.flags)
 	hkey := string(task.dest.ID().Bytes())
 	d.history.add(hkey, d.clock.Now().Add(dialHistoryExpiration))

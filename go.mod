@@ -69,8 +69,6 @@ require (
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce
 )
 
-//replace github.com/mp2bs/mp2bs => ./mp2bs
-
 require (
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v0.21.1 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/internal v0.8.3 // indirect

@@ -67,7 +67,6 @@ var (
 )
 
 func rlpxPing(ctx *cli.Context) error {
-	fmt.Println("func: rlpxPing")
 	n := getNodeArg(ctx)
 
 	//fix:

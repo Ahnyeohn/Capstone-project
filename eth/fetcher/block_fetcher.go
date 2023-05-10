@@ -332,7 +332,7 @@ func (f *BlockFetcher) FilterBodies(peer string, transactions [][]*types.Transac
 
 // Loop is the main fetcher loop, checking and processing various notification
 // events.
-//blockfetcher는 일종의 서버에서 데이터를 조회하기 위한 모듈?
+// blockfetcher는 일종의 서버에서 데이터를 조회하기 위한 모듈?
 func (f *BlockFetcher) loop() {
 	// Iterate the block fetching until a quit is requested
 	fmt.Println("Func: eth/fetcher/loop()")
@@ -837,12 +837,13 @@ func (f *BlockFetcher) importHeaders(peer string, header *types.Header) {
 	}()
 }
 
-//  spawns a new goroutine to run a block insertion into the chain. If the
+//	spawns a new goroutine to run a block insertion into the chain. If the
+//
 // block's number is at the same height as the current import phase, it updates
 // the phase states accordingly.
-//체인에 블록 삽입
+// 체인에 블록 삽입
 func (f *BlockFetcher) importBlocks(peer string, block *types.Block) {
-	fmt.Println("Func: importBlocks")
+	//fmt.Println("Func: importBlocks")
 	hash := block.Hash()
 
 	// Run the import on a new thread

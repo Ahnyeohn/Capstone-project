@@ -17,7 +17,6 @@
 package eth
 
 import (
-	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -41,7 +40,7 @@ type blockPropagation struct {
 // to the remote peer. The goal is to have an async writer that does not lock up
 // node internals and at the same time rate limits queued data.
 func (p *Peer) broadcastBlocks() { // 원격피어에게 전달하는 함수 전파할 모든 블록을 queue에서 가져와서 전파한다, 누구에게?: remote peer에게
-	fmt.Println("Func: broadcastBlocks()")
+	//fmt.Println("Func: broadcastBlocks()")
 	for {
 		select {
 		case prop := <-p.queuedBlocks: // 이전 asyncSendnewBlock 함수에서 큐에 담아놓은 블록들을 가져와서 그것을 전파
@@ -66,7 +65,7 @@ func (p *Peer) broadcastBlocks() { // 원격피어에게 전달하는 함수 전
 // to the remote peer. The goal is to have an async writer that does not lock up
 // node internals and at the same time rate limits queued data.
 func (p *Peer) broadcastTransactions() {
-	fmt.Println("Func: p.broadcastTransactions()")
+	//fmt.Println("Func: p.broadcastTransactions()")
 
 	var (
 		queue  []common.Hash         // Queue of hashes to broadcast as full transactions
@@ -135,7 +134,7 @@ func (p *Peer) broadcastTransactions() {
 // to the remote peer. The goal is to have an async writer that does not lock up
 // node internals and at the same time rate limits queued data.
 func (p *Peer) announceTransactions() {
-	fmt.Println("Func: announceTransactions()")
+	//fmt.Println("Func: announceTransactions()")
 	var (
 		queue  []common.Hash         // Queue of hashes to announce as transaction stubs
 		done   chan struct{}         // Non-nil if background announcer is running

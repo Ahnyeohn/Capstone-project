@@ -544,8 +544,8 @@ func (h *handler) unregisterPeer(id string) {
 	}
 }
 
-//핸들러를 통해 minedBroadcastLoop()와 txBroadcastLoop()를 go루틴으로 실행하여
-//독자적으로 트랜잭션과 블록을 전송가능 (braodcastTransactions, broadcastBlock)
+// 핸들러를 통해 minedBroadcastLoop()와 txBroadcastLoop()를 go루틴으로 실행하여
+// 독자적으로 트랜잭션과 블록을 전송가능 (braodcastTransactions, broadcastBlock)
 func (h *handler) Start(maxPeers int) {
 	h.maxPeers = maxPeers
 
@@ -588,7 +588,7 @@ func (h *handler) Stop() {
 // will only announce its availability (depending what's requested).
 func (h *handler) BroadcastBlock(block *types.Block, propagate bool) {
 
-	fmt.Println("Func: BroadcastBlock()")
+	//fmt.Println("Func: BroadcastBlock()")
 	// Disable the block propagation if the chain has already entered the PoS
 	// stage. The block propagation is delegated to the consensus layer.
 	if h.merger.PoSFinalized() {
@@ -634,7 +634,7 @@ func (h *handler) BroadcastBlock(block *types.Block, propagate bool) {
 // - To a square root of all peers
 // - And, separately, as announcements to all peers which are not known to
 // already have the given transaction.
-//start함수에서 loop를 통해 호출되는 handler기반 함수로, 해당 트랜잭션이 없는 피어들에게 AsyncSendTransactions()함수 호출
+// start함수에서 loop를 통해 호출되는 handler기반 함수로, 해당 트랜잭션이 없는 피어들에게 AsyncSendTransactions()함수 호출
 func (h *handler) BroadcastTransactions(txs types.Transactions) {
 	fmt.Println("Func: h.BroadcastTransactions()")
 	var (

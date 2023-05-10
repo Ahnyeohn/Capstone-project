@@ -51,9 +51,9 @@ import (
 type Conn struct {
 	dialDest *ecdsa.PublicKey
 	// devp2p quic
-	conn    quic.Connection
+	Conn    quic.Connection
 	fd      net.Conn
-	stream  quic.Stream
+	Stream  quic.Stream
 	session *sessionState
 
 	// These are the buffers for snappy compression.
@@ -101,8 +101,8 @@ func NewConn(conn quic.Connection, stream quic.Stream, dialDest *ecdsa.PublicKey
 	fmt.Println("Func: NewConn()")
 	return &Conn{
 		dialDest: dialDest,
-		conn:     conn,
-		stream:   stream,
+		Conn:     conn,
+		Stream:   stream,
 	}
 }
 
@@ -122,32 +122,32 @@ func (c *Conn) SetSnappy(snappy bool) {
 // SetReadDeadline sets the deadline for all future read operations.
 func (c *Conn) SetReadDeadline(time time.Time) error {
 	// fix: return c.conn.SetReadDeadline(time)
-	return c.stream.SetReadDeadline(time)
+	return c.Stream.SetReadDeadline(time)
 
 }
 
 // SetWriteDeadline sets the deadline for all future write operations.
 func (c *Conn) SetWriteDeadline(time time.Time) error {
 	// fix: return c.conn.SetWriteDeadline(time)
-	return c.stream.SetWriteDeadline(time)
+	return c.Stream.SetWriteDeadline(time)
 }
 
 // SetDeadline sets the deadline for all future read and write operations.
 func (c *Conn) SetDeadline(time time.Time) error {
 	// fix: return c.conn.SetDeadline(time)
-	return c.stream.SetDeadline(time)
+	return c.Stream.SetDeadline(time)
 }
 
 // Read reads a message from the connection.
 // The returned data buffer is valid until the next call to Read.
 func (c *Conn) Read() (code uint64, data []byte, wireSize int, err error) {
-	fmt.Println("Conn.Read()")
+	//fmt.Println("Conn.Read()")
 	if c.session == nil {
 		panic("can't ReadMsg before handshake")
 	}
 
 	//fix:  frame, err := c.session.readFrame(c.conn)
-	frame, err := c.session.readFrame(c.stream)
+	frame, err := c.session.readFrame(c.Stream)
 	if err != nil {
 		return 0, nil, 0, err
 	}
@@ -223,7 +223,7 @@ func (h *sessionState) readFrame(conn io.Reader) ([]byte, error) {
 // Write returns the written size of the message data. This may be less than or equal to
 // len(data) depending on whether snappy compression is enabled.
 func (c *Conn) Write(code uint64, data []byte) (uint32, error) { //얘도 호출되니까 참고 rlpx!!!
-	fmt.Println("Func: rlpx/Write()")
+	//fmt.Println("Func: rlpx/Write()")
 	if c.session == nil {
 		panic("can't WriteMsg before handshake")
 	} //아 세션은
@@ -240,7 +240,7 @@ func (c *Conn) Write(code uint64, data []byte) (uint32, error) { //얘도 호출
 
 	wireSize := uint32(len(data))
 	//fix: err := c.session.writeFrame(c.stream, code, data)
-	err := c.session.writeFrame(c.stream, code, data)
+	err := c.session.writeFrame(c.Stream, code, data)
 	return wireSize, err
 }
 
@@ -283,6 +283,7 @@ func (h *sessionState) writeFrame(stream quic.Stream, code uint64, data []byte) 
 
 	//fix: _, err := conn.Write(h.wbuf.data)
 	_, err := stream.Write(h.wbuf.data) // 요게 중요하다. 이 함수를 quic으로 바꾸기?
+	//fmt.Printf("Write: %d\n", n)
 	return err
 
 }
@@ -324,7 +325,7 @@ func (m *hashMAC) compute(sum1, seed []byte) []byte {
 // Handshake performs the handshake. This must be called before any data is written
 // or read from the connection.
 func (c *Conn) Handshake(prv *ecdsa.PrivateKey) (*ecdsa.PublicKey, error) {
-	fmt.Println("Func: Handshake()")
+	//fmt.Println("Func: Handshake()")
 	var (
 		sec Secrets
 		err error
@@ -332,10 +333,10 @@ func (c *Conn) Handshake(prv *ecdsa.PrivateKey) (*ecdsa.PublicKey, error) {
 	)
 	if c.dialDest != nil {
 		// fix: sec, err = h.runInitiator(c.conn, prv, c.dialDest)
-		sec, err = h.runInitiator(c.stream, prv, c.dialDest)
+		sec, err = h.runInitiator(c.Stream, prv, c.dialDest)
 	} else {
 		// fix: sec, err = h.runRecipient(c.conn, prv)
-		sec, err = h.runRecipient(c.stream, prv)
+		sec, err = h.runRecipient(c.Stream, prv)
 	}
 	if err != nil {
 		return nil, err
@@ -374,7 +375,7 @@ func (c *Conn) InitWithSecrets(sec Secrets) {
 // Close closes the underlying network connection.
 func (c *Conn) Close() error {
 	// fix: return c.conn.Close()
-	return c.stream.Close()
+	return c.Stream.Close()
 }
 
 // Constants for the handshake.

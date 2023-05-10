@@ -95,7 +95,7 @@ type TxPool interface {
 }
 
 // MakeProtocols constructs the P2P protocol definitions for `eth`.
-//초반에만 실행되는 듯 하다. 내 생각에는 각각의 피어들이 makeProtocols
+// 초반에만 실행되는 듯 하다. 내 생각에는 각각의 피어들이 makeProtocols
 func MakeProtocols(backend Backend, network uint64, dnsdisc enode.Iterator) []p2p.Protocol {
 
 	fmt.Println("Func: MakeProtocols")
@@ -154,7 +154,7 @@ func nodeInfo(chain *core.BlockChain, network uint64) *NodeInfo {
 // the protocol handshake. This method will keep processing messages until the
 // connection is torn down.
 func Handle(backend Backend, peer *Peer) error {
-	fmt.Println("Func: Handle() => 'eth' connection")
+	//fmt.Println("Func: Handle() => 'eth' connection")
 	for {
 		if err := handleMessage(backend, peer); err != nil {
 			peer.Log().Debug("Message handling failed in `eth`", "err", err)
@@ -218,10 +218,10 @@ var eth68 = map[uint64]msgHandler{
 
 // handleMessage is invoked whenever an inbound message is received from a remote
 // peer. The remote connection is torn down upon returning any error.
-//메세지를 기본함수 ReadMsg()를 통해 읽어와서 그 메세지 코드에 맞는 핸들러를 반환한다.
+// 메세지를 기본함수 ReadMsg()를 통해 읽어와서 그 메세지 코드에 맞는 핸들러를 반환한다.
 func handleMessage(backend Backend, peer *Peer) error {
 	// Read the next message from the remote peer, and ensure it's fully consumed
-	fmt.Printf("Func: handleMessage\n")
+	//fmt.Printf("Func: handleMessage\n")
 	msg, err := peer.rw.ReadMsg()
 	if err != nil {
 		return err

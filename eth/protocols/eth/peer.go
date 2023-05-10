@@ -95,10 +95,10 @@ type Peer struct {
 
 // NewPeer create a wrapper for a network connection and negotiated  protocol
 // version.
-//협상된 프로토콜 버전과 네트워크 연결에 대한 래퍼 생성 => 더 두꺼운(구체적인) peer생성 뒤,
+// 협상된 프로토콜 버전과 네트워크 연결에 대한 래퍼 생성 => 더 두꺼운(구체적인) peer생성 뒤,
 // 그 피어를 바탕으로 전송 go 루틴 실행
 func NewPeer(version uint, p *p2p.Peer, rw p2p.MsgReadWriter, txpool TxPool) *Peer {
-	fmt.Println("Func: eth/NewPeer()") //여기서 말하는 peer는 연결의 대상인 피어들을 말한다.
+	//fmt.Println("Func: eth/NewPeer()") //여기서 말하는 peer는 연결의 대상인 피어들을 말한다.
 	peer := &Peer{
 		id:              p.ID().String(),
 		Peer:            p,

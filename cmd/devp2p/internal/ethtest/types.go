@@ -162,7 +162,6 @@ type Conn struct {
 // Read reads an eth66 packet from the connection.
 func (c *Conn) Read() Message {
 
-	fmt.Println("Func: conn.Read()")
 	code, rawData, _, err := c.Conn.Read()
 	if err != nil {
 		return errorf("could not read from connection: %v", err)
@@ -245,7 +244,6 @@ func (c *Conn) Read() Message {
 // Write writes a eth packet to the connection.
 // 지금까지의 관찰에 따르면 얘는 안쓰는데
 func (c *Conn) Write(msg Message) error {
-	fmt.Println("Func: conn.Write()")
 	payload, err := rlp.EncodeToBytes(msg)
 	if err != nil {
 		return err

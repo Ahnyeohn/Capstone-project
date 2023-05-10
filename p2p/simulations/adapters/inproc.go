@@ -120,7 +120,6 @@ func (s *SimAdapter) Name() string {
 // fix: not required
 
 // func (s *SimAdapter) Dial(ctx context.Context, dest *enode.Node) (conn quic.Connection, err error) {
-// 	fmt.Println("Func: Dial()")
 // 	node, ok := s.GetNode(dest.ID())
 // 	if !ok {
 // 		return nil, fmt.Errorf("unknown node: %s", dest.ID())

@@ -36,8 +36,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	mp2bs "mp2bs/session"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/mclock"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -343,7 +341,7 @@ func (srv *Server) PeerCount() int {
 // the server will connect to the node. If the connection fails for any reason, the server
 // will attempt to reconnect the peer.
 func (srv *Server) AddPeer(node *enode.Node) {
-	fmt.Println("Func: AddPeer")
+	//fmt.Println("Func: AddPeer")
 	srv.dialsched.addStatic(node)
 }
 
@@ -458,7 +456,7 @@ func (s *sharedUDPConn) Close() error {
 // Start starts running the server.
 // Servers can not be re-used after stopping.
 func (srv *Server) Start() (err error) {
-	fmt.Println("Func: server/Start()")
+	//fmt.Println("Func: server/Start()")
 	srv.lock.Lock()
 	defer srv.lock.Unlock()
 	if srv.running {
@@ -648,7 +646,7 @@ func (srv *Server) setupDiscovery() error {
 }
 
 func (srv *Server) setupDialScheduler() {
-	fmt.Println("Func: setupDialScheduler()")
+	//fmt.Println("Func: setupDialScheduler()")
 	config := dialConfig{
 		self:           srv.localnode.ID(),
 		maxDialPeers:   srv.maxDialedConns(),
@@ -766,7 +764,7 @@ func (srv *Server) doPeerOp(fn peerOpFunc) {
 
 // run is the main loop of the server.
 func (srv *Server) run() {
-	fmt.Println("Func: p2p/server.go/run()")
+	//fmt.Println("Func: p2p/server.go/run()")
 	srv.log.Info("Started P2P networking", "self", srv.localnode.Node().URLv4())
 	defer srv.loopWG.Done()
 	defer srv.nodedb.Close()
@@ -904,7 +902,7 @@ func (srv *Server) addPeerChecks(peers map[enode.ID]*Peer, inboundCount int, c *
 // listenLoop runs in its own goroutine and accepts
 // inbound connections.
 func (srv *Server) listenLoop() {
-	fmt.Println("Func: listenLoop()")
+	//fmt.Println("Func: listenLoop()")
 	srv.log.Debug("TCP listener up", "addr", srv.listener.Addr())
 
 	// The slots channel limits accepts of new connections.
@@ -941,8 +939,7 @@ func (srv *Server) listenLoop() {
 		for {
 			//fix: fd, err = srv.listener.Accept()
 			ctx := context.Background()
-			//conn, err = srv.listener.Accept(ctx)
-			conn, err = mp2bs.Accept(srv.listener, ctx)
+			conn, err = srv.listener.Accept(ctx)
 
 			if netutil.IsTemporaryError(err) {
 				if time.Since(lastLog) > 1*time.Second {
@@ -1021,7 +1018,7 @@ func (srv *Server) checkInboundConn(remoteIP net.IP) error {
 // fix: func (srv *Server) SetupConn(fd net.Conn, flags connFlag, dialDest *enode.Node) error {
 // devp2p quic
 func (srv *Server) SetupConn(con quic.Connection, stream quic.Stream, flags connFlag, dialDest *enode.Node) error {
-	fmt.Println("Func: SetupConn()")
+	//fmt.Println("Func: SetupConn()")
 	c := &conn{con: con, stream: stream, flags: flags, cont: make(chan error)}
 	if dialDest == nil {
 		// fix: c.transport = srv.newTransport(fd, nil)
@@ -1121,7 +1118,7 @@ func (srv *Server) checkpoint(c *conn, stage chan<- *conn) error {
 
 // (연결될때마다 각각의 피어(노드)에서 실행)
 func (srv *Server) launchPeer(c *conn) *Peer {
-	fmt.Println("Func: launchPeer()")
+	//fmt.Println("Func: launchPeer()")
 	p := newPeer(srv.log, c, srv.Protocols) //피어를 생성
 	if srv.EnableMsgEvents {
 		// If message events are enabled, pass the peerFeed
@@ -1135,7 +1132,7 @@ func (srv *Server) launchPeer(c *conn) *Peer {
 // runPeer runs in its own goroutine for each peer.
 // 피어간에 실행되는 메인 (peer.run()을 실행시키면서 피어드롭을 감지하고, 피어드롭 신호가 올때까지 대기)
 func (srv *Server) runPeer(p *Peer) {
-	fmt.Println("Func: runPeer()")
+	//fmt.Println("Func: runPeer()")
 	if srv.newPeerHook != nil {
 		srv.newPeerHook(p)
 	}

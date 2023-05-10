@@ -69,8 +69,7 @@ JavaScript API. See https://geth.ethereum.org/docs/interface/javascript-console`
 // same time.
 func localConsole(ctx *cli.Context) error {
 	// Create and start the node based on the CLI flags
-	fmt.Println("haha this is mp2bs fix ver")
-	//fmt.Println("Func: localConsole()")
+	fmt.Println("geth quic version")
 	prepare(ctx)
 	stack, backend := makeFullNode(ctx)
 	startNode(ctx, stack, backend, true) //노드를 시작 :  클라이언트를 만들고 지갑 이벤트를 수행 및 대기

@@ -325,10 +325,10 @@ func handleNewBlockhashes(backend Backend, msg Decoder, peer *Peer) error {
 	return backend.Handle(peer, ann)
 }
 
-//전파된 블록을 처리, decode (받은 것으로 표시) , 핸들러 반환
+// 전파된 블록을 처리, decode (받은 것으로 표시) , 핸들러 반환
 func handleNewBlock(backend Backend, msg Decoder, peer *Peer) error {
 	// Retrieve and decode the propagated block
-	fmt.Println("Func: handleNewBlock()")
+	//fmt.Println("Func: handleNewBlock()")
 	ann := new(NewBlockPacket)
 	if err := msg.Decode(ann); err != nil {
 		return fmt.Errorf("%w: message %v: %v", errDecode, msg, err)

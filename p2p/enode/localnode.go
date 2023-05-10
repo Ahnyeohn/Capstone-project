@@ -296,7 +296,6 @@ func (ln *LocalNode) invalidate() {
 }
 
 func (ln *LocalNode) sign() {
-	fmt.Println("Func: sign()")
 	if n := ln.cur.Load().(*Node); n != nil {
 		return // no changes
 	}

@@ -18,6 +18,7 @@ package p2p
 
 import (
 	"bytes"
+	"context"
 	"crypto/ecdsa"
 	"fmt"
 	"io"
@@ -53,26 +54,52 @@ type rlpxTransport struct {
 
 // fix: func newRLPX(conn net.Conn, dialDest *ecdsa.PublicKey) transport {
 // devp2p quic
+// devp2p perf
 func newRLPX(conn quic.Connection, stream quic.Stream, dialDest *ecdsa.PublicKey) transport {
-	fmt.Println("Func: newRLPX()")
+	//fmt.Println("Func: newRLPX()")
 	return &rlpxTransport{conn: rlpx.NewConn(conn, stream, dialDest)} // 여기에 인자가 있다는건 어디서 받아온걸 넣겠다는거 아닌가? 의심
 }
 
 func (t *rlpxTransport) ReadMsg() (Msg, error) {
-	fmt.Println("func: rt/ReadMsg()")
+	//fmt.Println("func: rt/ReadMsg()")
 	t.rmu.Lock()
 	defer t.rmu.Unlock()
 
 	var msg Msg
+
+	stream, err := t.conn.Conn.AcceptStream(context.Background())
+	if err != nil {
+		fmt.Println("Accept error")
+	}
+	defer stream.Close()
+
 	t.conn.SetReadDeadline(time.Now().Add(frameReadTimeout))
+
+	buf := make([]byte, 1024)
+	n, err := stream.Read(buf)
+	data := buf[:n]
+
+	str := string(data)
+
+	start, err := time.Parse(time.RFC3339Nano, str)
+	if err != nil {
+	}
+
 	code, data, wireSize, err := t.conn.Read()
 	if err == nil {
 		// Protocol messages are dispatched to subprotocol handlers asynchronously,
 		// but package rlpx may reuse the returned 'data' buffer on the next call
 		// to Read. Copy the message data to avoid this being an issue.
+		end := time.Now()
 		data = common.CopyBytes(data)
+
+		if code == 7 || code == 23 {
+			delay := (end).Sub(start)
+			fmt.Printf("msg code: %d, block size: %d (compress: %d), block prop delay %v\n", code, len(data), wireSize, delay)
+		}
 		msg = Msg{
-			ReceivedAt: time.Now(),
+			ReceivedAt: end,
+			SendedAt:   start,
 			Code:       code,
 			Size:       uint32(len(data)),
 			meterSize:  uint32(wireSize),
@@ -84,9 +111,12 @@ func (t *rlpxTransport) ReadMsg() (Msg, error) {
 
 // 적게나마 호출이 되는듯 그리고 내부적으로 rlpx.write함수호출
 func (t *rlpxTransport) WriteMsg(msg Msg) error {
-	fmt.Println("Func: rt/WriteMsg()")
+	//fmt.Println("Func: rt/WriteMsg()")
 	t.wmu.Lock()
 	defer t.wmu.Unlock()
+
+	var size uint32
+	var err error
 
 	// Copy message data to write buffer.
 	t.wbuf.Reset()
@@ -94,9 +124,35 @@ func (t *rlpxTransport) WriteMsg(msg Msg) error {
 		return err
 	}
 
+	stream, err := t.conn.Conn.OpenStreamSync(context.Background())
+	if err != nil {
+		fmt.Println("OpenStream error")
+	}
+	defer stream.Close()
+
 	// Write the message.
 	t.conn.SetWriteDeadline(time.Now().Add(frameWriteTimeout))
-	size, err := t.conn.Write(msg.Code, t.wbuf.Bytes()) // conn 구조체를 통해 세션에 접근
+
+	//devp2p perf
+	ti := time.Now()
+	loc, err := time.LoadLocation("Asia/Seoul")
+	if err != nil {
+		panic(err)
+	}
+	str := ti.In(loc)
+	//str := time.Now().String()
+	if msg.Code == 7 || msg.Code == 23 {
+
+		fmt.Printf("msg code: %d, send time: %s, block size: %d\n", msg.Code, str, msg.Size)
+	}
+	b := []byte(str.Format(time.RFC3339Nano))
+
+	_, err = stream.Write(b)
+	if err != nil {
+		return err
+	}
+
+	size, err = t.conn.Write(msg.Code, t.wbuf.Bytes()) // conn 구조체를 통해 세션에 접근
 	if err != nil {
 		return err
 	}
@@ -133,7 +189,7 @@ func (t *rlpxTransport) close(err error) {
 }
 
 func (t *rlpxTransport) doEncHandshake(prv *ecdsa.PrivateKey) (*ecdsa.PublicKey, error) {
-	fmt.Println("Func: doEncHandshake()")
+	//fmt.Println("Func: doEncHandshake()")
 	t.conn.SetDeadline(time.Now().Add(handshakeTimeout))
 	return t.conn.Handshake(prv)
 }
@@ -143,7 +199,7 @@ func (t *rlpxTransport) doProtoHandshake(our *protoHandshake) (their *protoHands
 	// returning the handshake read error. If the remote side
 	// disconnects us early with a valid reason, we should return it
 	// as the error so it can be tracked elsewhere.
-	fmt.Println("Func: doProtoHandshake()")
+	//fmt.Println("Func: doProtoHandshake()")
 	werr := make(chan error, 1)
 	go func() { werr <- Send(t, handshakeMsg, our) }()
 	if their, err = readProtocolHandshake(t); err != nil {
