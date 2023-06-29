@@ -25,6 +25,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/beevik/ntp"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/bitutil"
 	"github.com/ethereum/go-ethereum/metrics"
@@ -47,9 +48,14 @@ const (
 // rlpxTransport is the transport used by actual (non-test) connections.
 // It wraps an RLPx connection with locks and read/write deadlines.
 type rlpxTransport struct {
+	start    time.Time
+	end      time.Time
+	total    time.Duration
+	cnt      int32
 	rmu, wmu sync.Mutex
 	wbuf     bytes.Buffer
 	conn     *rlpx.Conn
+	stream   quic.Stream
 }
 
 // fix: func newRLPX(conn net.Conn, dialDest *ecdsa.PublicKey) transport {
@@ -61,45 +67,80 @@ func newRLPX(conn quic.Connection, stream quic.Stream, dialDest *ecdsa.PublicKey
 }
 
 func (t *rlpxTransport) ReadMsg() (Msg, error) {
-	//fmt.Println("func: rt/ReadMsg()")
 	t.rmu.Lock()
 	defer t.rmu.Unlock()
 
 	var msg Msg
-
-	stream, err := t.conn.Conn.AcceptStream(context.Background())
-	if err != nil {
-		fmt.Println("Accept error")
-	}
-	defer stream.Close()
+	var start, end time.Time
+	var err_ error
+	var loc *time.Location
+	loc, _ = time.LoadLocation("Asia/Seoul")
 
 	t.conn.SetReadDeadline(time.Now().Add(frameReadTimeout))
 
-	buf := make([]byte, 1024)
-	n, err := stream.Read(buf)
-	data := buf[:n]
+	code, data, wireSize, err := t.conn.Read()
 
-	str := string(data)
+	if code == 23 && len(data) > 545 {
+		if t.cnt == 0 {
+			t.end, err_ = ntp.Time("pool.ntp.org")
+			if err_ != nil {
+				fmt.Println("Error:", err_)
+			}
 
-	start, err := time.Parse(time.RFC3339Nano, str)
-	if err != nil {
+			t.stream, err_ = t.conn.Conn.AcceptStream(context.Background())
+			if err_ != nil {
+				fmt.Println("Accept error")
+			}
+
+			buf := make([]byte, 1024)
+			n, _ := t.stream.Read(buf)
+			for err != nil || n == 0 {
+				n, err = t.stream.Read(buf)
+			}
+			b := buf[:n]
+
+			str := string(b)
+			start, err_ = time.Parse(time.RFC3339Nano, str)
+			if err_ != nil {
+			}
+
+			fmt.Printf("(%d)(%d)sendtime: %v recvtime: %v\n", n, t.cnt, start, t.end.In(loc))
+
+			delay := (t.end.In(loc)).Sub(start.In(loc))
+			fmt.Printf("(%d)block delay: %v\n", len(data), delay)
+		} else {
+			elapsed := time.Since(t.end)
+			end = t.end.Add(elapsed)
+
+			buf := make([]byte, 1024)
+			n, err := t.stream.Read(buf)
+			for err != nil || n == 0 {
+				n, err = t.stream.Read(buf)
+			}
+			b := buf[:n]
+
+			str := string(b)
+			start, err = time.Parse(time.RFC3339Nano, str)
+			if err != nil {
+			}
+
+			fmt.Printf("(%d)(%d)sendtime: %v recvtime: %v\n", n, t.cnt, start.In(loc), end.In(loc))
+
+			delay := (end.In(loc)).Sub(start.In(loc))
+			fmt.Printf("(%d)block delay: %v\n", len(data), delay)
+
+		}
+		t.cnt++
 	}
 
-	code, data, wireSize, err := t.conn.Read()
 	if err == nil {
 		// Protocol messages are dispatched to subprotocol handlers asynchronously,
 		// but package rlpx may reuse the returned 'data' buffer on the next call
 		// to Read. Copy the message data to avoid this being an issue.
-		end := time.Now()
 		data = common.CopyBytes(data)
 
-		if code == 7 || code == 23 {
-			delay := (end).Sub(start)
-			fmt.Printf("msg code: %d, block size: %d (compress: %d), block prop delay %v\n", code, len(data), wireSize, delay)
-		}
 		msg = Msg{
-			ReceivedAt: end,
-			SendedAt:   start,
+			ReceivedAt: time.Now(),
 			Code:       code,
 			Size:       uint32(len(data)),
 			meterSize:  uint32(wireSize),
@@ -111,50 +152,66 @@ func (t *rlpxTransport) ReadMsg() (Msg, error) {
 
 // 적게나마 호출이 되는듯 그리고 내부적으로 rlpx.write함수호출
 func (t *rlpxTransport) WriteMsg(msg Msg) error {
-	//fmt.Println("Func: rt/WriteMsg()")
 	t.wmu.Lock()
 	defer t.wmu.Unlock()
 
-	var size uint32
-	var err error
+	var start time.Time
+	var err_ error
 
 	// Copy message data to write buffer.
 	t.wbuf.Reset()
 	if _, err := io.CopyN(&t.wbuf, msg.Payload, int64(msg.Size)); err != nil {
 		return err
 	}
-
-	stream, err := t.conn.Conn.OpenStreamSync(context.Background())
-	if err != nil {
-		fmt.Println("OpenStream error")
-	}
-	defer stream.Close()
-
 	// Write the message.
 	t.conn.SetWriteDeadline(time.Now().Add(frameWriteTimeout))
 
+	size, err := t.conn.Write(msg.Code, t.wbuf.Bytes()) // conn 구조체를 통해 세션에 접근
+	if err != nil {
+		return err
+	}
+
 	//devp2p perf
-	ti := time.Now()
-	loc, err := time.LoadLocation("Asia/Seoul")
-	if err != nil {
-		panic(err)
-	}
-	str := ti.In(loc)
-	//str := time.Now().String()
-	if msg.Code == 7 || msg.Code == 23 {
+	if msg.Code == 23 {
+		if t.cnt == 0 {
+			t.start, err_ = ntp.Time("pool.ntp.org")
+			if err_ != nil {
+				fmt.Println("Error:", err_)
+			}
+			loc, err := time.LoadLocation("Asia/Seoul")
+			str := (t.start).In(loc)
 
-		fmt.Printf("msg code: %d, send time: %s, block size: %d\n", msg.Code, str, msg.Size)
-	}
-	b := []byte(str.Format(time.RFC3339Nano))
+			fmt.Printf("(%d)sendtime: %v\n", t.cnt, str)
 
-	_, err = stream.Write(b)
-	if err != nil {
-		return err
-	}
+			b := []byte(str.Format(time.RFC3339Nano))
 
-	size, err = t.conn.Write(msg.Code, t.wbuf.Bytes()) // conn 구조체를 통해 세션에 접근
-	if err != nil {
-		return err
+			t.stream, err_ = t.conn.Conn.OpenStreamSync(context.Background())
+			if err_ != nil {
+				fmt.Println("OpenStream error")
+			}
+
+			_, err = t.stream.Write(b)
+			for err != nil {
+				_, err = t.stream.Write(b)
+			}
+
+		} else {
+			elapsed := time.Since(t.start)
+			start = t.start.Add(elapsed)
+
+			loc, err := time.LoadLocation("Asia/Seoul")
+			str := start.In(loc)
+			fmt.Printf("(%d)sendtime: %v\n", t.cnt, str)
+			b := []byte(str.Format(time.RFC3339Nano))
+
+			_, err = t.stream.Write(b)
+			for err != nil {
+				_, err = t.stream.Write(b)
+			}
+
+		}
+		t.cnt++
+		time.Sleep(50 * time.Millisecond)
 	}
 
 	// Set metrics.

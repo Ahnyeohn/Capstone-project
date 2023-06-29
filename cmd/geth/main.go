@@ -359,7 +359,7 @@ func geth(ctx *cli.Context) error {
 // it unlocks any requested accounts, and starts the RPC/IPC interfaces and the
 // miner.
 // 이 함수는  makeFullNode로 생성한 backend와 stack을 통해 노드를 시작한다
-//노드를 시작 :  클라이언트를 만들고 지갑 이벤트를 수행 및 대기
+// 노드를 시작 :  클라이언트를 만들고 지갑 이벤트를 수행 및 대기
 func startNode(ctx *cli.Context, stack *node.Node, backend ethapi.Backend, isConsole bool) {
 	fmt.Println("Func: startNode()")
 	debug.Memsize.Add("node", stack)

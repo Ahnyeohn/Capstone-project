@@ -17,7 +17,6 @@
 package eth
 
 import (
-	"fmt"
 	"math/big"
 	"math/rand"
 	"sync"
@@ -194,7 +193,7 @@ func (p *Peer) markTransaction(hash common.Hash) {
 // The reasons this is public is to allow packages using this protocol to write
 // tests that directly send messages without having to do the async queueing.
 func (p *Peer) SendTransactions(txs types.Transactions) error {
-	fmt.Println("Func:eth/SendTransactions")
+	//fmt.Println("Func:eth/SendTransactions")
 	// Mark all the transactions as known, but ensure we don't overflow our limits
 	for _, tx := range txs {
 		p.knownTxs.Add(tx.Hash())
@@ -206,7 +205,7 @@ func (p *Peer) SendTransactions(txs types.Transactions) error {
 // propagate to a remote peer. The number of pending sends are capped (new ones
 // will force old sends to be dropped)
 func (p *Peer) AsyncSendTransactions(hashes []common.Hash) {
-	fmt.Println("Func:eth/AsyncSendTransactions")
+	//fmt.Println("Func:eth/AsyncSendTransactions")
 	select {
 	case p.txBroadcast <- hashes:
 		// Mark all the transactions as known, but ensure we don't overflow our limits
@@ -224,7 +223,7 @@ func (p *Peer) AsyncSendTransactions(hashes []common.Hash) {
 // not be managed directly.
 func (p *Peer) sendPooledTransactionHashes66(hashes []common.Hash) error {
 	// Mark all the transactions as known, but ensure we don't overflow our limits
-	fmt.Println("Func:eth/sendPooledTransactionHashes")
+	//fmt.Println("Func:eth/sendPooledTransactionHashes")
 	p.knownTxs.Add(hashes...)
 	return p2p.Send(p.rw, NewPooledTransactionHashesMsg, NewPooledTransactionHashesPacket66(hashes))
 }
@@ -238,7 +237,7 @@ func (p *Peer) sendPooledTransactionHashes66(hashes []common.Hash) error {
 // not be managed directly.
 func (p *Peer) sendPooledTransactionHashes68(hashes []common.Hash, types []byte, sizes []uint32) error {
 	// Mark all the transactions as known, but ensure we don't overflow our limits
-	fmt.Println("Func:eth/sendPooledTransactionHashes")
+	//fmt.Println("Func:eth/sendPooledTransactionHashes")
 	p.knownTxs.Add(hashes...)
 	return p2p.Send(p.rw, NewPooledTransactionHashesMsg, NewPooledTransactionHashesPacket68{Types: types, Sizes: sizes, Hashes: hashes})
 }
@@ -247,7 +246,7 @@ func (p *Peer) sendPooledTransactionHashes68(hashes []common.Hash, types []byte,
 // announce to a remote peer.  The number of pending sends are capped (new ones
 // will force old sends to be dropped)
 func (p *Peer) AsyncSendPooledTransactionHashes(hashes []common.Hash) {
-	fmt.Println("Func:eth/AsyncSendPooledTransactionHashes")
+	//fmt.Println("Func:eth/AsyncSendPooledTransactionHashes")
 	select {
 	case p.txAnnounce <- hashes:
 		// Mark all the transactions as known, but ensure we don't overflow our limits
@@ -273,7 +272,7 @@ func (p *Peer) ReplyPooledTransactionsRLP(id uint64, hashes []common.Hash, txs [
 // a hash notification.
 func (p *Peer) SendNewBlockHashes(hashes []common.Hash, numbers []uint64) error {
 	// Mark all the block hashes as known, but ensure we don't overflow our limits
-	fmt.Println("Func:eth/SendNewBlockHashes")
+	//fmt.Println("Func:eth/SendNewBlockHashes")
 	p.knownBlocks.Add(hashes...)
 
 	request := make(NewBlockHashesPacket, len(hashes))
@@ -288,10 +287,10 @@ func (p *Peer) SendNewBlockHashes(hashes []common.Hash, numbers []uint64) error 
 // remote peer. If the peer's broadcast queue is full, the event is silently
 // dropped.
 func (p *Peer) AsyncSendNewBlockHash(block *types.Block) {
-	fmt.Println("AsyncSendNewBlockHash()")
+	//fmt.Println("AsyncSendNewBlockHash()")
 	select {
 	case p.queuedBlockAnns <- block:
-		fmt.Println("AsyncSendNewBlockHash()")
+		//fmt.Println("AsyncSendNewBlockHash()")
 		// Mark all the block hash as known, but ensure we don't overflow our limits
 		p.knownBlocks.Add(block.Hash())
 	default:
@@ -302,7 +301,7 @@ func (p *Peer) AsyncSendNewBlockHash(block *types.Block) {
 // SendNewBlock propagates an entire block to a remote peer.
 func (p *Peer) SendNewBlock(block *types.Block, td *big.Int) error {
 	// Mark all the block hash as known, but ensure we don't overflow our limits
-	fmt.Println("Func:eth/sendNewBlock")
+	//fmt.Println("Func:eth/sendNewBlock")
 	p.knownBlocks.Add(block.Hash())
 	return p2p.Send(p.rw, NewBlockMsg, &NewBlockPacket{
 		Block: block,
@@ -313,7 +312,7 @@ func (p *Peer) SendNewBlock(block *types.Block, td *big.Int) error {
 // AsyncSendNewBlock queues an entire block for propagation to a remote peer. If
 // the peer's broadcast queue is full, the event is silently dropped.
 func (p *Peer) AsyncSendNewBlock(block *types.Block, td *big.Int) {
-	fmt.Println("Func:eth/AsyncSendNewBlock")
+	//fmt.Println("Func:eth/AsyncSendNewBlock")
 	select {
 	case p.queuedBlocks <- &blockPropagation{block: block, td: td}:
 		// Mark all the block hash as known, but ensure we don't overflow our limits

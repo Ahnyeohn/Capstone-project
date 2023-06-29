@@ -70,6 +70,16 @@ func (b *readBuffer) read(r io.Reader, n int) ([]byte, error) {
 	return b.data[offset : offset+n], nil
 }
 
+func (b *readBuffer) read2(r io.Reader) ([]byte, error) {
+
+	// Read.
+	rn, err := r.Read(b.data)
+	if err != nil {
+		return nil, err
+	}
+	return b.data[:rn], nil
+}
+
 // grow ensures the buffer has at least n bytes of unused space.
 func (b *readBuffer) grow(n int) {
 	if cap(b.data)-b.end >= n {

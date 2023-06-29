@@ -70,11 +70,6 @@ type tcpDialer struct {
 	n *enode.LocalNode
 } // 얘가 노드다이얼러의 다이얼을 구현하는 구조체이구나!!!
 
-type udpDialer struct {
-	d *net.Dialer
-	n *enode.LocalNode
-} // 얘가 노드다이얼러의 다이얼을 구현하는 구조체이구나!!!
-
 // devp2p quic
 func (t tcpDialer) Dial(ctx context.Context, dest *enode.Node) (quic.Connection, quic.Stream, error) {
 	fmt.Printf("dest: %s\n%s\n%s\n", dest.URLv4(), dest.IP().String(), nodeAddr(dest).String())
@@ -85,12 +80,10 @@ func (t tcpDialer) Dial(ctx context.Context, dest *enode.Node) (quic.Connection,
 		InsecureSkipVerify: true,
 		NextProtos:         []string{"socket-programming"},
 	}
-
 	conn, err := quic.DialAddr(nodeAddr(dest).String(), tlsConf, nil)
 	if err != nil {
 		fmt.Println("dial error")
 	}
-
 	stream, err := conn.OpenStreamSync(ctx)
 	if err != nil {
 		fmt.Println("stream error")
@@ -314,6 +307,7 @@ loop:
 			d.updateStaticPool(c.node.ID())
 
 		case node := <-d.addStaticCh:
+			fmt.Printf("Adding static node\n")
 			id := node.ID()
 			_, exists := d.static[id]
 			d.log.Trace("Adding static node", "id", id, "ip", node.IP(), "added", !exists)
@@ -429,6 +423,7 @@ func (d *dialScheduler) checkDial(n *enode.Node) error {
 		return errSelf
 	}
 	if n.IP() != nil && (n.TCP() == 0 && n.UDP() == 0) { //TCP
+		fmt.Println("errNoPort")
 		// This check can trigger if a non-TCP node is found
 		// by discovery. If there is no IP, the node is a static
 		// node and the actual endpoint will be resolved later in dialTask.

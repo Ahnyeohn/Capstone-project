@@ -319,7 +319,7 @@ func (p *Peer) pingLoop() {
 
 func (p *Peer) readLoop(errc chan<- error) {
 	defer p.wg.Done()
-	fmt.Printf("Func:p2p/peer.go/readLoop ")
+	//fmt.Printf("Func:p2p/peer.go/readLoop ")
 	for {
 		msg, err := p.rw.ReadMsg()
 		if err != nil {

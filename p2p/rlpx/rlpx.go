@@ -98,12 +98,15 @@ func newHashMAC(cipher cipher.Block, h hash.Hash) hashMAC {
 // fix: func NewConn(conn net.Conn, dialDest *ecdsa.PublicKey) *Conn {
 // devp2p quic
 func NewConn(conn quic.Connection, stream quic.Stream, dialDest *ecdsa.PublicKey) *Conn {
-	fmt.Println("Func: NewConn()")
+	//fmt.Println("Func: NewConn()")
 	return &Conn{
 		dialDest: dialDest,
 		Conn:     conn,
 		Stream:   stream,
 	}
+}
+func (c *Conn) GetStream() quic.Stream {
+	return c.Stream
 }
 
 // SetSnappy enables or disables snappy compression of messages. This is usually called
@@ -181,6 +184,7 @@ func (h *sessionState) readFrame(conn io.Reader) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	//fmt.Printf("read header: %d\n", len(header))
 
 	// Verify header MAC.
 	wantHeaderMAC := h.ingressMAC.computeHeader(header[:16])
@@ -226,7 +230,7 @@ func (c *Conn) Write(code uint64, data []byte) (uint32, error) { //얘도 호출
 	//fmt.Println("Func: rlpx/Write()")
 	if c.session == nil {
 		panic("can't WriteMsg before handshake")
-	} //아 세션은
+	}
 	if len(data) > maxUint24 {
 		return 0, errPlainMessageTooLarge
 	}
@@ -270,6 +274,8 @@ func (h *sessionState) writeFrame(stream quic.Stream, code uint64, data []byte) 
 	데이터를 파일에 저장하거나 네트워크에서 전송하기 위해서는 바이트 스트림 형식으로 변환되어야 한다.
 	RLP는 데이터를 저장하거나 전송하는데 필요한 통일된 포맷을 제공한다.
 	데이터는 RLP로 변환되어 트랜잭션 전송, 블록 state 및 receipt 저장, DB 저장 등에 사용된다.*/
+	//n, err := stream.Write(h.wbuf.data)
+	//fmt.Printf("write header: %d\n", n)
 
 	h.wbuf.Write(data)
 	if padding := fsize % 16; padding > 0 {
@@ -283,7 +289,8 @@ func (h *sessionState) writeFrame(stream quic.Stream, code uint64, data []byte) 
 
 	//fix: _, err := conn.Write(h.wbuf.data)
 	_, err := stream.Write(h.wbuf.data) // 요게 중요하다. 이 함수를 quic으로 바꾸기?
-	//fmt.Printf("Write: %d\n", n)
+
+	//fmt.Printf("Write: %d, %d\n", offset, n)
 	return err
 
 }

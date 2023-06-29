@@ -953,12 +953,11 @@ func (srv *Server) listenLoop() {
 				slots <- struct{}{}
 				return
 			}
-
 			stream, err = conn.AcceptStream(ctx)
 			if err != nil {
 				return
 			}
-
+			fmt.Println("accept new stream!")
 			break
 		}
 
@@ -977,13 +976,13 @@ func (srv *Server) listenLoop() {
 			//if tcp, ok := conn.RemoteAddr().(*net.TCPAddr); ok {
 			//	  addr = tcp
 			//}
-			var addr *net.UDPAddr //tcp
-			if udp, ok := conn.RemoteAddr().(*net.UDPAddr); ok {
-				addr = udp
-			}
+			// var addr *net.UDPAddr //tcp
+			// if udp, ok := conn.RemoteAddr().(*net.UDPAddr); ok {
+			// 	addr = udp
+			// }
 			//fix: conn = newMeteredConn(conn, true, addr)
-			srv.log.Trace("Accepted connection", "addr", conn.RemoteAddr())
-			stream = newMeteredConn(stream, true, addr)
+			// srv.log.Trace("Accepted connection", "addr", conn.RemoteAddr())
+			// stream = newMeteredConn(stream, true, addr)
 			srv.log.Trace("Accepted connection", "addr", conn.RemoteAddr())
 		}
 		go func() {
