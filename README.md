@@ -1,4 +1,4 @@
-Geth private network
+#Geth private network
 
 step 1. make genesis.json file
   path: build/bin/[path to store data]
